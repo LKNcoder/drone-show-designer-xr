@@ -1,0 +1,2544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drone Show Designer XR — Spatial AI & 3D Choreography Studio</title>
+<style>
+  :root {
+    --bg-glass: rgba(12, 16, 28, 0.86);
+    --bg-panel: rgba(18, 24, 42, 0.92);
+    --bg-card: rgba(28, 37, 64, 0.85);
+    --bg-card-active: rgba(56, 189, 248, 0.22);
+    --border-subtle: rgba(148, 163, 184, 0.2);
+    --border-active: #38bdf8;
+    --accent-cyan: #38bdf8;
+    --accent-purple: #a855f7;
+    --accent-amber: #f59e0b;
+    --accent-emerald: #10b981;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+  }
+
+  * { box-sizing: border-box; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: #04060c;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text-main);
+  }
+
+  #canvas-container {
+    position: fixed; inset: 0; z-index: 1;
+  }
+
+  /* Top Header Bar */
+  #top-bar {
+    position: fixed; top: 12px; left: 16px; right: 16px;
+    z-index: 20; display: flex; align-items: center; justify-content: space-between;
+    pointer-events: none; gap: 12px;
+  }
+  .top-group {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-glass); backdrop-filter: blur(14px);
+    border: 1px solid var(--border-subtle); border-radius: 12px;
+    padding: 7px 12px; pointer-events: auto;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+  }
+  .brand-title {
+    font-weight: 800; font-size: 14px; letter-spacing: 0.4px;
+    background: linear-gradient(90deg, #38bdf8, #c084fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-right: 6px;
+  }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 3px 8px;
+    border-radius: 999px; background: rgba(56, 189, 248, 0.15);
+    color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+
+  button, select, input[type="text"] {
+    font-family: inherit; font-size: 12px; color: var(--text-main);
+  }
+  .btn {
+    background: rgba(30, 41, 69, 0.9);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-main);
+    padding: 6px 11px; border-radius: 8px;
+    cursor: pointer; font-weight: 600; font-size: 12px;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: all 0.15s ease;
+  }
+  .btn:hover {
+    background: rgba(51, 65, 104, 0.95);
+    border-color: rgba(148, 163, 184, 0.45);
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    border-color: #38bdf8;
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #0369a1, #1d4ed8);
+  }
+  .btn-purple {
+    background: linear-gradient(135deg, #7e22ce, #6366f1);
+    border-color: #c084fc;
+  }
+  .btn-danger {
+    background: rgba(153, 27, 27, 0.45);
+    border-color: rgba(248, 113, 113, 0.4);
+    color: #fca5a5;
+  }
+  .btn-danger:hover {
+    background: rgba(185, 28, 28, 0.7);
+  }
+
+  /* AI Director Chat / Voice Simulator Dock (Right Side) */
+  #ai-chat-dock {
+    position: fixed; top: 64px; right: 16px; width: 350px;
+    max-height: calc(100vh - 290px);
+    z-index: 20; display: flex; flex-direction: column;
+    background: var(--bg-panel); backdrop-filter: blur(16px);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  #ai-chat-dock.minimized {
+    max-height: 44px;
+  }
+  .chat-header {
+    padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(90deg, rgba(88, 28, 135, 0.45), rgba(30, 58, 138, 0.45));
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+  }
+  .chat-header-title {
+    font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 7px;
+  }
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #c084fc; box-shadow: 0 0 8px #c084fc;
+  }
+  #chat-messages {
+    flex: 1; overflow-y: auto; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+    min-height: 170px; max-height: 280px;
+    user-select: text;
+  }
+  .chat-msg {
+    font-size: 12px; line-height: 1.42; padding: 8px 10px;
+    border-radius: 10px; max-width: 92%;
+  }
+  .chat-msg.ai {
+    background: rgba(30, 41, 69, 0.85);
+    border: 1px solid var(--border-subtle);
+    align-self: flex-start; color: #e2e8f0;
+  }
+  .chat-msg.user {
+    background: linear-gradient(135deg, rgba(126, 34, 206, 0.65), rgba(37, 99, 235, 0.65));
+    border: 1px solid rgba(192, 132, 252, 0.4);
+    align-self: flex-end; color: #fff;
+  }
+  .prompt-chips {
+    display: flex; flex-wrap: wrap; gap: 5px; padding: 6px 12px 8px;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+  }
+  .prompt-chip {
+    font-size: 10.5px; padding: 3px 8px; border-radius: 999px;
+    background: rgba(56, 189, 248, 0.12); color: #bae6fd;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    cursor: pointer; transition: all 0.12s;
+  }
+  .prompt-chip:hover {
+    background: rgba(56, 189, 248, 0.28); color: #fff;
+  }
+  .chat-input-row {
+    display: flex; gap: 6px; padding: 8px 10px;
+    background: rgba(10, 14, 26, 0.75);
+    border-top: 1px solid var(--border-subtle);
+  }
+  #chat-input {
+    flex: 1; background: rgba(20, 27, 45, 0.95);
+    border: 1px solid var(--border-subtle); border-radius: 8px;
+    padding: 7px 10px; color: #fff; outline: none;
+    user-select: text;
+  }
+  #chat-input:focus { border-color: #c084fc; }
+
+  /* Bottom Spatial Console (2-Tier: Contextual Drawer + Timeline Ribbon) */
+  #bottom-console {
+    position: fixed; bottom: 12px; left: 16px; right: 16px;
+    z-index: 20; display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+  }
+
+  /* Tier 1: Contextual Inspector Drawer */
+  #context-drawer {
+    background: var(--bg-panel); backdrop-filter: blur(16px);
+    border: 1px solid var(--border-subtle); border-radius: 14px;
+    padding: 10px 14px; pointer-events: auto;
+    box-shadow: 0 10px 32px rgba(0,0,0,0.5);
+    transition: all 0.18s ease;
+  }
+  .drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; gap: 10px; flex-wrap: wrap;
+  }
+  .drawer-title {
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+  }
+  .drawer-controls {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .ctrl-pill {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid var(--border-subtle);
+    padding: 4px 9px; border-radius: 8px; font-size: 11.5px;
+  }
+  .ctrl-pill label { color: var(--text-muted); font-weight: 600; }
+  .ctrl-pill input[type="range"] { width: 72px; accent-color: var(--accent-cyan); cursor: pointer; }
+  .ctrl-pill select {
+    background: transparent; border: none; color: var(--text-main);
+    font-weight: 600; outline: none; cursor: pointer;
+  }
+  .ctrl-pill select option { background: #0f172a; color: #fff; }
+
+  /* Layer Swatch Cards inside Formation Inspector */
+  .layers-row {
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px;
+  }
+  .layer-card {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: 10px; padding: 7px 10px; min-width: 215px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .layer-card-top {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  }
+  .layer-name {
+    font-size: 11.5px; font-weight: 700; color: #e2e8f0;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .color-swatch-input {
+    width: 24px; height: 22px; border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 5px; padding: 0; background: transparent; cursor: pointer;
+  }
+  .layer-card-bottom {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11px;
+  }
+  .layer-card-bottom select {
+    background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-subtle);
+    border-radius: 6px; padding: 3px 6px; font-size: 11px; color: #7dd3fc;
+  }
+  .mini-slider {
+    display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 10.5px;
+  }
+  .mini-slider input[type="range"] { width: 52px; accent-color: #a855f7; }
+
+  /* Transition & Library Grid inside Contextual Drawer */
+  .chip-grid {
+    display: flex; flex-wrap: wrap; gap: 7px; align-items: center;
+  }
+  .choice-chip {
+    background: var(--bg-card); border: 1px solid var(--border-subtle);
+    border-radius: 9px; padding: 7px 12px; font-size: 12px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: all 0.14s ease;
+  }
+  .choice-chip:hover {
+    border-color: var(--accent-cyan); background: rgba(56, 189, 248, 0.12);
+  }
+  .choice-chip.active {
+    background: var(--bg-card-active); border-color: var(--accent-cyan);
+    color: #fff; box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  }
+
+  /* Tier 2: Timeline & Transport Ribbon */
+  #timeline-ribbon {
+    background: var(--bg-glass); backdrop-filter: blur(16px);
+    border: 1px solid var(--border-subtle); border-radius: 14px;
+    padding: 9px 14px; pointer-events: auto;
+    display: flex; flex-direction: column; gap: 8px;
+    box-shadow: 0 10px 32px rgba(0,0,0,0.55);
+  }
+  .transport-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  #time-scrub {
+    flex: 1; accent-color: var(--accent-cyan); cursor: pointer; height: 5px;
+  }
+  #hud-time {
+    font-size: 11.5px; font-variant-numeric: tabular-nums;
+    color: var(--text-muted); min-width: 155px; text-align: right;
+  }
+
+  /* Scene Cards Strip */
+  #scenes-strip {
+    display: flex; align-items: center; gap: 6px;
+    overflow-x: auto; padding: 3px 2px;
+  }
+  .scene-card {
+    background: var(--bg-card); border: 1.5px solid var(--border-subtle);
+    border-radius: 10px; padding: 7px 11px; min-width: 125px;
+    cursor: pointer; display: flex; flex-direction: column; gap: 4px;
+    transition: all 0.15s ease; position: relative; flex-shrink: 0;
+  }
+  .scene-card:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+  }
+  .scene-card.selected {
+    background: var(--bg-card-active); border-color: var(--accent-cyan);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+  }
+  .scene-card.playing::after {
+    content: ""; position: absolute; bottom: -1px; left: 10%; right: 10%;
+    height: 3px; background: #10b981; border-radius: 3px;
+  }
+  .scene-card-top {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  }
+  .scene-card-title {
+    font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .scene-type-tag {
+    font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+    background: rgba(168, 85, 247, 0.22); color: #d8b4fe;
+  }
+  .scene-type-tag.tag-3d {
+    background: rgba(16, 185, 129, 0.22); color: #6ee7b7;
+  }
+  .scene-swatches {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .swatch-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.35);
+  }
+
+  /* Transition Connector Pill between Scene Cards */
+  .trans-connector {
+    background: rgba(15, 23, 42, 0.85); border: 1px dashed rgba(148, 163, 184, 0.35);
+    border-radius: 999px; padding: 4px 8px; font-size: 10.5px; color: var(--text-muted);
+    cursor: pointer; display: flex; align-items: center; gap: 3px;
+    flex-shrink: 0; transition: all 0.14s ease;
+  }
+  .trans-connector:hover {
+    border-color: var(--accent-amber); color: #fcd34d;
+  }
+  .trans-connector.selected {
+    background: rgba(245, 158, 11, 0.2); border: 1.5px solid var(--accent-amber);
+    color: #fde68a; font-weight: 700;
+  }
+
+  .add-scene-card {
+    background: rgba(56, 189, 248, 0.1); border: 1.5px dashed rgba(56, 189, 248, 0.45);
+    border-radius: 10px; padding: 10px 14px; cursor: pointer;
+    color: #7dd3fc; font-weight: 700; font-size: 12px;
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  }
+  .add-scene-card:hover, .add-scene-card.selected {
+    background: rgba(56, 189, 248, 0.22); border-color: var(--accent-cyan); color: #fff;
+  }
+
+  /* Modal for Gemini API Key */
+  #api-modal {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(2, 6, 23, 0.75); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+  }
+  #api-modal.open { display: flex; }
+  .modal-card {
+    background: #0f172a; border: 1px solid var(--border-subtle);
+    border-radius: 14px; padding: 18px 20px; width: 400px; max-width: 92vw;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<!-- Top Navigation & Project Actions -->
+<div id="top-bar">
+  <div class="top-group">
+    <span class="brand-title">DRONE SHOW DESIGNER XR</span>
+    <span class="badge" id="drone-count-badge">600 Drones</span>
+    <div class="ctrl-pill">
+      <label>Sky FX:</label>
+      <select id="sky-fx-select" title="Ambient Background Particle Drones">
+        <option value="embers">🔥 Rising Embers (60)</option>
+        <option value="leaves">🍂 Falling Leaves (60)</option>
+        <option value="snow">❄️ Winter Snow (60)</option>
+        <option value="fireflies">✨ Fireflies (60)</option>
+        <option value="none">🌌 None (All 600 in Formation)</option>
+      </select>
+    </div>
+    <div class="ctrl-pill">
+      <label>Preset Show:</label>
+      <select id="preset-show-select">
+        <option value="showcase">✨ 2D + 3D Showcase (6 Scenes)</option>
+        <option value="cosmic">🪐 Cosmic Odyssey 3D (5 Scenes)</option>
+        <option value="mythic">🐉 Mythic Legends (5 Scenes)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="top-group">
+    <button class="btn" id="btn-import-img" title="Import PNG, JPG, or SVG into a multi-layer drone formation">🖼️ Import Image</button>
+    <input type="file" id="file-import-img" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none" />
+    <button class="btn" id="btn-save-json" title="Save show as compact JSON file">💾 Save .JSON</button>
+    <button class="btn" id="btn-load-json" title="Load a saved .JSON show file">📂 Load</button>
+    <input type="file" id="file-load-json" accept=".json,application/json" style="display:none" />
+    <button class="btn btn-purple" id="btn-api-key" title="Optional: Connect Gemini 2.5 Flash for unlimited live AI SVG synthesis">🔑 Gemini AI</button>
+    <button class="btn btn-primary" id="btn-enter-ar">🥽 Tabletop AR</button>
+    <button class="btn btn-primary" id="btn-enter-vr">🌌 Full Sky VR</button>
+  </div>
+</div>
+
+<!-- AI Director Chat / Voice Simulator Dock -->
+<div id="ai-chat-dock">
+  <div class="chat-header" id="chat-header-toggle">
+    <div class="chat-header-title">
+      <span class="pulse-dot"></span>
+      <span>🎙️ AI Director (Voice / Chat Test)</span>
+    </div>
+    <span style="font-size:11px; color:var(--text-muted);" id="chat-toggle-label">Minimize ▾</span>
+  </div>
+  <div id="chat-messages">
+    <div class="chat-msg ai">
+      <strong>AI Show Director Ready!</strong><br/>
+      Type any voice command below to generate <strong>2D animated multi-part formations</strong>, <strong>true 3D sculptures</strong>, or tweak layers in real time.
+    </div>
+  </div>
+  <div class="prompt-chips">
+    <span class="prompt-chip" data-prompt="Add a fiery phoenix with flapping wings">🔥 Fiery Phoenix</span>
+    <span class="prompt-chip" data-prompt="Add a 3D ringed planet Saturn">🪐 3D Saturn</span>
+    <span class="prompt-chip" data-prompt="Add a 3D pulsing jellyfish">🪼 3D Jellyfish</span>
+    <span class="prompt-chip" data-prompt="Add a howling wolf under a full moon">🐺 Wolf & Moon</span>
+    <span class="prompt-chip" data-prompt="Add a UFO abducting a cow">🛸 UFO & Cow</span>
+    <span class="prompt-chip" data-prompt="Add a 3D beating heart">❤️ 3D Heart</span>
+    <span class="prompt-chip" data-prompt="Make the current formation 3D curved">✨ Add 3D Depth</span>
+  </div>
+  <div class="chat-input-row">
+    <button class="btn" id="btn-mic-voice" title="Use browser speech recognition">🎤</button>
+    <input type="text" id="chat-input" placeholder="e.g. 'Add a fiery phoenix with flapping wings'..." />
+    <button class="btn btn-purple" id="btn-chat-send">Send</button>
+  </div>
+</div>
+
+<!-- Bottom 2-Tier Spatial Console -->
+<div id="bottom-console">
+  <!-- Tier 1: Single Contextual Inspector Drawer -->
+  <div id="context-drawer"></div>
+
+  <!-- Tier 2: Timeline & Transport Ribbon -->
+  <div id="timeline-ribbon">
+    <div class="transport-row">
+      <button class="btn btn-primary" id="btn-play" style="min-width:74px; justify-content:center;">⏸ Pause</button>
+      <button class="btn" id="btn-camera-reset" title="Reset 3D Camera View">🎯 Center View</button>
+      <input type="range" id="time-scrub" min="0" max="60" step="0.05" value="0" />
+      <div id="hud-time">Takeoff (0.0s / 60.0s)</div>
+    </div>
+    <div id="scenes-strip"></div>
+  </div>
+</div>
+
+<!-- Optional Gemini API Key Modal -->
+<div id="api-modal">
+  <div class="modal-card">
+    <h3 style="margin:0 0 8px; font-size:15px;">🔑 Connect Google Gemini 2.5 Flash (Optional)</h3>
+    <p style="font-size:12px; color:var(--text-muted); line-height:1.45; margin:0 0 12px;">
+      Out of the box, the AI Director includes a built-in procedural & multi-layer SVG synthesizer for dozens of formations and commands.<br/><br/>
+      To generate <strong>unlimited custom multi-layer animated SVG formations</strong> from any prompt, paste a free Gemini API key (saved locally in your browser):
+    </p>
+    <input type="password" id="gemini-key-input" placeholder="AIzaSy..." style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border-subtle); background:#04060c; color:#fff; margin-bottom:12px;" />
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button class="btn" id="btn-modal-close">Cancel</button>
+      <button class="btn btn-purple" id="btn-modal-save">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+// ============================================================================
+// 1. CORE THREE.JS & WEBXR STAGE SETUP
+// ============================================================================
+const MAX_DRONES = 600;
+const AMBIENT_DRONE_COUNT = 60;
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+
+const container = document.getElementById("canvas-container");
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x04060c);
+scene.fog = new THREE.FogExp2(0x04060c, 0.0045);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 400);
+camera.position.set(0, 15, 42);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.xr.enabled = true;
+container.appendChild(renderer.domElement);
+
+const xrRig = new THREE.Group();
+scene.add(xrRig);
+xrRig.add(camera);
+
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.target.set(0, 15, 0);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.06;
+orbit.maxPolarAngle = Math.PI * 0.52;
+orbit.minDistance = 8;
+orbit.maxDistance = 120;
+
+const stageGroup = new THREE.Group();
+scene.add(stageGroup);
+
+// Subtle Ground Grid & Launch Pad
+const gridHelper = new THREE.GridHelper(64, 32, 0x1e293b, 0x0f172a);
+gridHelper.position.y = 0.02;
+stageGroup.add(gridHelper);
+
+// Starfield Background
+const starCount = 1200;
+const starGeo = new THREE.BufferGeometry();
+const starPos = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount; i++) {
+  const r = 110 + Math.random() * 90;
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.random() * Math.PI * 0.48;
+  starPos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+  starPos[i * 3 + 1] = r * Math.cos(phi);
+  starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+}
+starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({ color: 0x94a3b8, size: 0.35, transparent: true, opacity: 0.7 });
+const starField = new THREE.Points(starGeo, starMat);
+scene.add(starField);
+
+// Glowing Drone Sprite Texture
+function createGlowTexture() {
+  const c = document.createElement("canvas");
+  c.width = 64; c.height = 64;
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+  g.addColorStop(0.0, "rgba(255,255,255,1)");
+  g.addColorStop(0.32, "rgba(255,255,255,0.92)");
+  g.addColorStop(0.65, "rgba(255,255,255,0.25)");
+  g.addColorStop(1.0, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+const droneGeo = new THREE.BufferGeometry();
+const currentPositions = new Float32Array(MAX_DRONES * 3);
+const targetPositions  = new Float32Array(MAX_DRONES * 3);
+const velocities       = new Float32Array(MAX_DRONES * 3);
+const currentColors    = new Float32Array(MAX_DRONES * 3);
+const targetColors     = new Float32Array(MAX_DRONES * 3);
+const isDroneVisible   = new Uint8Array(MAX_DRONES);
+
+// Ground Pad Positions (25x24 Launch Grid)
+const groundPositions  = new Float32Array(MAX_DRONES * 3);
+const cols = 25, rows = 24, spacing = 0.85;
+for (let i = 0; i < MAX_DRONES; i++) {
+  const c = i % cols;
+  const r = Math.floor(i / cols);
+  groundPositions[i * 3]     = (c - (cols - 1) / 2) * spacing;
+  groundPositions[i * 3 + 1] = 0.15;
+  groundPositions[i * 3 + 2] = (r - (rows - 1) / 2) * spacing;
+  currentPositions[i * 3]     = groundPositions[i * 3];
+  currentPositions[i * 3 + 1] = groundPositions[i * 3 + 1];
+  currentPositions[i * 3 + 2] = groundPositions[i * 3 + 2];
+  currentColors[i * 3] = 1; currentColors[i * 3 + 1] = 1; currentColors[i * 3 + 2] = 1;
+  isDroneVisible[i] = 1;
+}
+
+// Ambient Particle Drone Seeds
+const ambientSeeds = new Float32Array(MAX_DRONES);
+const ambientHomeX = new Float32Array(MAX_DRONES);
+const ambientHomeZ = new Float32Array(MAX_DRONES);
+for (let i = 0; i < MAX_DRONES; i++) {
+  ambientSeeds[i] = (i * 0.6180339887) % 1.0;
+  const angle = i * GOLDEN;
+  const rad = 5.0 + Math.sqrt(i / MAX_DRONES) * 18.0;
+  ambientHomeX[i] = Math.cos(angle) * rad;
+  ambientHomeZ[i] = Math.sin(angle) * rad * 0.65;
+}
+
+droneGeo.setAttribute("position", new THREE.BufferAttribute(currentPositions, 3));
+droneGeo.setAttribute("color", new THREE.BufferAttribute(currentColors, 3));
+
+const BASE_DRONE_SIZE = 0.88;
+const droneMat = new THREE.PointsMaterial({
+  size: BASE_DRONE_SIZE,
+  map: createGlowTexture(),
+  vertexColors: true,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending
+});
+const dronePoints = new THREE.Points(droneGeo, droneMat);
+stageGroup.add(dronePoints);
+
+// ============================================================================
+// 2. SAMPLERS: 2D MULTI-LAYER SVG, RASTER IMAGE QUANTIZER, & TRUE 3D SCULPTURES
+// ============================================================================
+const offCanvas = document.createElement("canvas");
+offCanvas.width = 256; offCanvas.height = 256;
+const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
+
+// Connected-component island-preserving sampler for a single 2D canvas mask
+function sampleCanvasMask(ctx, count, zOffset = 0, zBulge = 0) {
+  const W = 256, H = 256;
+  const img = ctx.getImageData(0, 0, W, H).data;
+  const valid = [];
+  for (let y = 0; y < H; y += 2) {
+    for (let x = 0; x < W; x += 2) {
+      const idx = (y * W + x) * 4;
+      const lum = (img[idx] * 0.299 + img[idx + 1] * 0.587 + img[idx + 2] * 0.114) * (img[idx + 3] / 255);
+      if (lum > 36) valid.push({ x, y });
+    }
+  }
+  const pts = new Float32Array(count * 3);
+  if (valid.length === 0) return pts;
+
+  for (let i = 0; i < count; i++) {
+    const p = valid[Math.floor((i / count) * valid.length) % valid.length];
+    const nx = (p.x / W - 0.5) * 2.0; // -1..1
+    const ny = (0.5 - p.y / H) * 2.0; // -1..1
+    const wx = nx * 13.5;
+    const wy = 16.0 + ny * 12.5;
+    const r2 = Math.max(0, 1.0 - (nx * nx + ny * ny));
+    const wz = zOffset + (zBulge * Math.sqrt(r2) * 5.0) * (i % 2 === 0 ? 1 : -0.6);
+    pts[i * 3]     = wx;
+    pts[i * 3 + 1] = wy;
+    pts[i * 3 + 2] = wz;
+  }
+  return pts;
+}
+
+// Render an SVG snippet onto the 256x256 offscreen canvas and sample points
+async function sampleSvgLayer(svgBody, count, zOffset = 0, zBulge = 0) {
+  const fullSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">${svgBody}</svg>`;
+  const blob = new Blob([fullSvg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      offCtx.clearRect(0, 0, 256, 256);
+      offCtx.drawImage(img, 0, 0, 256, 256);
+      URL.revokeObjectURL(url);
+      resolve(sampleCanvasMask(offCtx, count, zOffset, zBulge));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(new Float32Array(count * 3));
+    };
+    img.src = url;
+  });
+}
+
+// True 3D Volumetric / Parametric Generators
+function generate3DLayerPoints(shape3d, partRole, count) {
+  const pts = new Float32Array(count * 3);
+  if (shape3d === "saturn") {
+    if (partRole === "planet") {
+      for (let i = 0; i < count; i++) {
+        const phi = Math.acos(1 - 2 * ((i + 0.5) / count));
+        const theta = i * GOLDEN;
+        const r = 6.2;
+        pts[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+        pts[i * 3 + 1] = 16.0 + r * Math.cos(phi);
+        pts[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      }
+    } else {
+      // Tilted 3D Rings
+      const tilt = 0.42;
+      const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
+      for (let i = 0; i < count; i++) {
+        const band = i % 3;
+        const r = 9.2 + band * 2.1 + (Math.sin(i * 19.1) * 0.4);
+        const a = (i / count) * Math.PI * 2.0 * 3.0;
+        const rx = Math.cos(a) * r;
+        const rz = Math.sin(a) * r;
+        pts[i * 3]     = rx;
+        pts[i * 3 + 1] = 16.0 + rz * sinT;
+        pts[i * 3 + 2] = rz * cosT;
+      }
+    }
+  } else if (shape3d === "jellyfish") {
+    if (partRole === "bell") {
+      // 3D Ribbed Dome Bell
+      for (let i = 0; i < count; i++) {
+        const u = (i + 0.5) / count;
+        const phi = Math.acos(1 - u * 1.15); // hemisphere + rim
+        const theta = i * GOLDEN;
+        const rib = 1.0 + 0.08 * Math.cos(theta * 8.0);
+        const r = 8.5 * rib;
+        pts[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+        pts[i * 3 + 1] = 18.0 + r * Math.cos(phi) * 0.85;
+        pts[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      }
+    } else {
+      // 8 3D Spiraling Tentacles
+      const numTentacles = 8;
+      for (let i = 0; i < count; i++) {
+        const tIdx = i % numTentacles;
+        const u = Math.floor(i / numTentacles) / Math.ceil(count / numTentacles);
+        const baseAngle = (tIdx / numTentacles) * Math.PI * 2.0;
+        const rad = 4.2 + Math.sin(u * Math.PI * 2.0 + tIdx) * 1.1;
+        const swirl = baseAngle + u * 0.8;
+        pts[i * 3]     = Math.cos(swirl) * rad;
+        pts[i * 3 + 1] = 16.8 - u * 12.0;
+        pts[i * 3 + 2] = Math.sin(swirl) * rad;
+      }
+    }
+  } else if (shape3d === "heart3d") {
+    if (partRole === "core") {
+      for (let i = 0; i < count; i++) {
+        const u = ((i + 0.5) / count) * Math.PI * 2.0;
+        const layer = (i % 9) - 4;
+        const zScale = Math.sqrt(Math.max(0.05, 1.0 - (layer / 4.5) ** 2));
+        const x = 16 * Math.pow(Math.sin(u), 3);
+        const y = 13 * Math.cos(u) - 5 * Math.cos(2 * u) - 2 * Math.cos(3 * u) - Math.cos(4 * u);
+        pts[i * 3]     = x * 0.62 * zScale;
+        pts[i * 3 + 1] = 16.5 + y * 0.62 * zScale;
+        pts[i * 3 + 2] = layer * 1.15;
+      }
+    } else {
+      // Orbiting 3D Halo Ring
+      for (let i = 0; i < count; i++) {
+        const a = (i / count) * Math.PI * 2.0;
+        const r = 12.2;
+        pts[i * 3]     = Math.cos(a) * r;
+        pts[i * 3 + 1] = 16.0 + Math.sin(a * 2.0) * 2.2;
+        pts[i * 3 + 2] = Math.sin(a) * r;
+      }
+    }
+  } else if (shape3d === "dna") {
+    if (partRole === "strands") {
+      for (let i = 0; i < count; i++) {
+        const strand = i % 2 === 0 ? 0 : Math.PI;
+        const u = (Math.floor(i / 2) / (count / 2)) * 2.0 - 1.0; // -1..1
+        const angle = u * Math.PI * 2.5 + strand;
+        const r = 6.5;
+        pts[i * 3]     = Math.cos(angle) * r;
+        pts[i * 3 + 1] = 16.0 + u * 11.5;
+        pts[i * 3 + 2] = Math.sin(angle) * r;
+      }
+    } else {
+      // Base-pair rungs
+      const numRungs = 14;
+      for (let i = 0; i < count; i++) {
+        const rIdx = i % numRungs;
+        const u = (rIdx / (numRungs - 1)) * 1.8 - 0.9;
+        const angle = u * Math.PI * 2.5;
+        const frac = ((Math.floor(i / numRungs) / Math.ceil(count / numRungs)) * 2.0 - 1.0) * 6.0;
+        pts[i * 3]     = Math.cos(angle) * frac;
+        pts[i * 3 + 1] = 16.0 + u * 11.5;
+        pts[i * 3 + 2] = Math.sin(angle) * frac;
+      }
+    }
+  } else if (shape3d === "crown3d") {
+    if (partRole === "band") {
+      for (let i = 0; i < count; i++) {
+        const a = (i / count) * Math.PI * 2.0;
+        const row = i % 4;
+        const r = 8.5 + row * 0.15;
+        pts[i * 3]     = Math.cos(a) * r;
+        pts[i * 3 + 1] = 11.5 + row * 0.7;
+        pts[i * 3 + 2] = Math.sin(a) * r;
+      }
+    } else {
+      // 6 3D Crown Spires & Jewels
+      for (let i = 0; i < count; i++) {
+        const a = (i / count) * Math.PI * 2.0;
+        const spire = Math.pow(Math.abs(Math.sin(a * 3.0)), 0.75);
+        const r = 8.5 + spire * 1.4;
+        pts[i * 3]     = Math.cos(a) * r;
+        pts[i * 3 + 1] = 14.2 + spire * 7.5;
+        pts[i * 3 + 2] = Math.sin(a) * r;
+      }
+    }
+  } else if (shape3d === "galaxy3d") {
+    for (let i = 0; i < count; i++) {
+      const arm = i % 3;
+      const u = Math.pow((i + 0.5) / count, 0.75);
+      const r = u * 13.5;
+      const a = u * Math.PI * 3.5 + (arm * Math.PI * 2) / 3;
+      const tilt = 0.48;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      const thickness = (1.0 - u) * 2.2 * Math.sin(i * 7.3);
+      pts[i * 3]     = x;
+      pts[i * 3 + 1] = 16.0 + z * Math.sin(tilt) + thickness;
+      pts[i * 3 + 2] = z * Math.cos(tilt);
+    }
+  }
+  return pts;
+}
+
+// ============================================================================
+// 3. STARTER FORMATION LIBRARY (2D MULTI-LAYER SVG + TRUE 3D SCULPTURES)
+// ============================================================================
+const FORMATION_LIBRARY = {
+  phoenix: {
+    name: "Fiery Phoenix",
+    is3D: false,
+    rotSpeedY: 0,
+    layers: [
+      {
+        name: "Wings",
+        color: "#ff9100",
+        motion: "wing_flap",
+        weight: 0.48,
+        zOffset: 0.0,
+        zBulge: 0.35,
+        svg: `<path fill="#fff" d="M114,125 C82,102 42,66 14,52 C24,90 48,125 84,142 C52,146 28,158 18,174 C54,168 88,156 114,142 Z M142,125 C174,102 214,66 242,52 C232,90 208,125 172,142 C204,146 228,158 238,174 C202,168 168,156 142,142 Z"/>`
+      },
+      {
+        name: "Body & Crest",
+        color: "#ff2a00",
+        motion: "hover_bob",
+        weight: 0.28,
+        zOffset: 1.2,
+        zBulge: 0.4,
+        svg: `<path fill="#fff" d="M128,42 L118,68 L138,68 Z M128,66 C114,66 108,95 108,124 C108,152 118,172 128,182 C138,172 148,152 148,124 C148,95 142,66 128,66 Z"/>`
+      },
+      {
+        name: "Tail Flames",
+        color: "#ffe600",
+        motion: "flame_flicker",
+        weight: 0.24,
+        zOffset: -1.0,
+        zBulge: 0.2,
+        svg: `<path fill="#fff" d="M120,176 C106,204 88,226 74,246 C102,232 116,210 124,186 Z M128,180 C122,212 122,235 128,252 C134,235 134,212 128,180 Z M136,176 C150,204 168,226 182,246 C154,232 140,210 132,186 Z"/>`
+      }
+    ]
+  },
+
+  saturn3d: {
+    name: "3D Ringed Saturn",
+    is3D: true,
+    rotSpeedY: 35,
+    layers: [
+      { name: "Planet Sphere", color: "#f59e0b", motion: "pulse_3d", weight: 0.42, shape3d: "saturn", partRole: "planet" },
+      { name: "Orbital Rings", color: "#38bdf8", motion: "orbit_ring", weight: 0.58, shape3d: "saturn", partRole: "rings" }
+    ]
+  },
+
+  dragon: {
+    name: "Mystic Dragon",
+    is3D: false,
+    rotSpeedY: 0,
+    layers: [
+      {
+        name: "Dragon Wings",
+        color: "#10b981",
+        motion: "wing_flap",
+        weight: 0.42,
+        zOffset: -0.8,
+        zBulge: 0.35,
+        svg: `<path fill="#fff" d="M112,115 C80,75 42,56 14,62 C36,92 48,118 44,142 C68,128 92,126 112,132 Z M144,115 C176,75 214,56 242,62 C220,92 208,118 212,142 C188,128 164,126 144,132 Z"/>`
+      },
+      {
+        name: "Serpent Body",
+        color: "#06b6d4",
+        motion: "hover_bob",
+        weight: 0.34,
+        zOffset: 0.8,
+        zBulge: 0.45,
+        svg: `<path fill="#fff" d="M118,54 L148,54 L158,72 L134,82 L138,145 C140,182 105,205 85,228 L68,216 C92,192 114,172 114,140 L114,76 Z"/>`
+      },
+      {
+        name: "Fire Breath",
+        color: "#ff3d00",
+        motion: "flame_flicker",
+        weight: 0.24,
+        zOffset: 1.8,
+        zBulge: 0.2,
+        svg: `<path fill="#fff" d="M164,68 C192,52 222,42 248,48 C226,66 238,84 250,94 C216,96 186,86 164,74 Z"/>`
+      }
+    ]
+  },
+
+  jellyfish3d: {
+    name: "3D Pulsing Jellyfish",
+    is3D: true,
+    rotSpeedY: 40,
+    layers: [
+      { name: "Bioluminescent Bell", color: "#e879f9", motion: "pulse_3d", weight: 0.52, shape3d: "jellyfish", partRole: "bell" },
+      { name: "3D Tentacles", color: "#38bdf8", motion: "wave_sway", weight: 0.48, shape3d: "jellyfish", partRole: "tentacles" }
+    ]
+  },
+
+  wolf_moon: {
+    name: "Wolf & Full Moon",
+    is3D: false,
+    rotSpeedY: 0,
+    layers: [
+      {
+        name: "Full Moon (Back Z)",
+        color: "#fde047",
+        motion: "pulse_3d",
+        weight: 0.40,
+        zOffset: -5.5,
+        zBulge: 0.5,
+        svg: `<circle cx="168" cy="84" r="46" fill="none" stroke="#fff" stroke-width="14"/><circle cx="168" cy="84" r="22" fill="#fff"/>`
+      },
+      {
+        name: "Howling Wolf",
+        color: "#38bdf8",
+        motion: "hover_bob",
+        weight: 0.38,
+        zOffset: 2.0,
+        zBulge: 0.25,
+        svg: `<path fill="#fff" d="M88,62 L106,46 L112,68 L132,58 L124,86 L132,126 L126,184 L64,184 L72,128 L88,92 Z"/>`
+      },
+      {
+        name: "Cliff Ledge",
+        color: "#a855f7",
+        motion: "none",
+        weight: 0.22,
+        zOffset: 2.2,
+        zBulge: 0.1,
+        svg: `<path fill="#fff" d="M24,182 L176,182 L148,224 L24,224 Z"/>`
+      }
+    ]
+  },
+
+  ufo_cow: {
+    name: "UFO Abduction",
+    is3D: false,
+    rotSpeedY: 0,
+    layers: [
+      {
+        name: "Flying Saucer",
+        color: "#00f5d4",
+        motion: "hover_bob",
+        weight: 0.38,
+        zOffset: 0.0,
+        zBulge: 0.6,
+        svg: `<ellipse cx="128" cy="68" rx="74" ry="18" fill="#fff"/><path fill="#fff" d="M88,62 C88,34 168,34 168,62 Z"/>`
+      },
+      {
+        name: "Tractor Beam",
+        color: "#a855f7",
+        motion: "steam_rise",
+        weight: 0.34,
+        zOffset: -1.2,
+        zBulge: 0.2,
+        svg: `<path fill="none" stroke="#fff" stroke-width="10" stroke-dasharray="16,10" d="M96,88 L58,226 M160,88 L198,226 M128,88 L128,226"/>`
+      },
+      {
+        name: "Floating Cow",
+        color: "#ffffff",
+        motion: "spin_360",
+        weight: 0.28,
+        zOffset: 1.5,
+        zBulge: 0.3,
+        svg: `<rect x="96" y="152" width="56" height="32" rx="10" fill="#fff"/><circle cx="160" cy="154" r="14" fill="#fff"/><rect x="100" y="182" width="10" height="22" fill="#fff"/><rect x="138" y="182" width="10" height="22" fill="#fff"/>`
+      }
+    ]
+  },
+
+  heart3d: {
+    name: "3D Beating Heart",
+    is3D: true,
+    rotSpeedY: 30,
+    layers: [
+      { name: "3D Heart Core", color: "#fb7185", motion: "pulse_3d", weight: 0.68, shape3d: "heart3d", partRole: "core" },
+      { name: "Orbital Ring", color: "#fde047", motion: "orbit_ring", weight: 0.32, shape3d: "heart3d", partRole: "ring" }
+    ]
+  },
+
+  dna3d: {
+    name: "3D DNA Double Helix",
+    is3D: true,
+    rotSpeedY: 45,
+    layers: [
+      { name: "Helix Backbones", color: "#38bdf8", motion: "pulse_3d", weight: 0.58, shape3d: "dna", partRole: "strands" },
+      { name: "Base Pair Rungs", color: "#f43f5e", motion: "none", weight: 0.42, shape3d: "dna", partRole: "rungs" }
+    ]
+  },
+
+  crown3d: {
+    name: "3D Royal Crown",
+    is3D: true,
+    rotSpeedY: 35,
+    layers: [
+      { name: "Golden Spires", color: "#facc15", motion: "hover_bob", weight: 0.62, shape3d: "crown3d", partRole: "spires" },
+      { name: "Crown Jewels & Band", color: "#ec4899", motion: "pulse_3d", weight: 0.38, shape3d: "crown3d", partRole: "band" }
+    ]
+  },
+
+  galaxy3d: {
+    name: "3D Spiral Galaxy",
+    is3D: true,
+    rotSpeedY: 50,
+    layers: [
+      { name: "Galactic Core & Arms", color: "#a855f7", motion: "orbit_ring", weight: 0.65, shape3d: "galaxy3d", partRole: "arms" },
+      { name: "Star Clusters", color: "#38bdf8", motion: "pulse_3d", weight: 0.35, shape3d: "galaxy3d", partRole: "core" }
+    ]
+  },
+
+  skull_flames: {
+    name: "Flaming Skull",
+    is3D: false,
+    rotSpeedY: 0,
+    layers: [
+      {
+        name: "Skull Cranium",
+        color: "#f8fafc",
+        motion: "hover_bob",
+        weight: 0.45,
+        zOffset: 1.2,
+        zBulge: 0.55,
+        svg: `<path fill="#fff" d="M128,64 C86,64 64,94 64,132 C64,156 78,172 92,182 L164,182 C178,172 192,156 192,132 C192,94 170,64 128,64 Z M102,118 A14,14 0 1,0 102,146 A14,14 0 1,0 102,118 Z M154,118 A14,14 0 1,0 154,146 A14,14 0 1,0 154,118 Z"/>`
+      },
+      {
+        name: "Articulated Jaw",
+        color: "#cbd5e1",
+        motion: "jaw_caw",
+        weight: 0.20,
+        zOffset: 1.5,
+        zBulge: 0.3,
+        svg: `<rect x="92" y="192" width="72" height="28" rx="8" fill="#fff"/>`
+      },
+      {
+        name: "Crown of Fire",
+        color: "#ff4500",
+        motion: "flame_flicker",
+        weight: 0.35,
+        zOffset: -1.2,
+        zBulge: 0.25,
+        svg: `<path fill="#fff" d="M56,118 C42,74 72,38 96,18 C94,46 112,48 128,14 C144,48 162,46 160,18 C184,38 214,74 200,118 C186,78 164,62 128,60 C92,62 70,78 56,118 Z"/>`
+      }
+    ]
+  },
+
+  sailboat: {
+    name: "Sailboat on Waves",
+    is3D: false,
+    rotSpeedY: 0,
+    layers: [
+      {
+        name: "Billowing Sails",
+        color: "#ffffff",
+        motion: "hover_bob",
+        weight: 0.44,
+        zOffset: 0.5,
+        zBulge: 0.5,
+        svg: `<path fill="#fff" d="M124,36 L124,156 L54,156 Z M134,52 L134,156 L202,156 Z"/>`
+      },
+      {
+        name: "Wooden Hull",
+        color: "#f59e0b",
+        motion: "hover_bob",
+        weight: 0.24,
+        zOffset: 0.8,
+        zBulge: 0.3,
+        svg: `<path fill="#fff" d="M48,166 L208,166 L182,196 L74,196 Z"/>`
+      },
+      {
+        name: "Ocean Waves",
+        color: "#0ea5e9",
+        motion: "wave_sway",
+        weight: 0.32,
+        zOffset: 1.8,
+        zBulge: 0.2,
+        svg: `<path fill="none" stroke="#fff" stroke-width="14" d="M18,214 Q52,196 86,214 T154,214 T238,214 M18,236 Q52,218 86,236 T154,236 T238,236"/>`
+      }
+    ]
+  }
+};
+
+function cloneSceneFromTemplate(key, transMotion = "ribbon_wave") {
+  const tpl = FORMATION_LIBRARY[key];
+  return {
+    id: "sc_" + Math.random().toString(36).slice(2, 8),
+    name: tpl.name,
+    is3D: !!tpl.is3D,
+    dur: 6.0,
+    transDur: 3.5,
+    transMotion,
+    altitude: 16.0,
+    scale: 1.0,
+    rotSpeedY: tpl.rotSpeedY || 0,
+    layers: tpl.layers.map(l => ({ ...l }))
+  };
+}
+
+// Preset Shows
+const PRESET_SHOWS = {
+  showcase: [
+    cloneSceneFromTemplate("phoenix", "fire_spiral"),
+    cloneSceneFromTemplate("saturn3d", "ribbon_wave"),
+    cloneSceneFromTemplate("wolf_moon", "lunar_arc"),
+    cloneSceneFromTemplate("jellyfish3d", "helix"),
+    cloneSceneFromTemplate("ufo_cow", "vortex"),
+    cloneSceneFromTemplate("heart3d", "ribbon_wave")
+  ],
+  cosmic: [
+    cloneSceneFromTemplate("saturn3d", "vortex"),
+    cloneSceneFromTemplate("galaxy3d", "helix"),
+    cloneSceneFromTemplate("ufo_cow", "lunar_arc"),
+    cloneSceneFromTemplate("dna3d", "ribbon_wave"),
+    cloneSceneFromTemplate("crown3d", "supernova")
+  ],
+  mythic: [
+    cloneSceneFromTemplate("phoenix", "fire_spiral"),
+    cloneSceneFromTemplate("dragon", "ribbon_wave"),
+    cloneSceneFromTemplate("skull_flames", "vortex"),
+    cloneSceneFromTemplate("wolf_moon", "celtic_swirl"),
+    cloneSceneFromTemplate("sailboat", "cascade_wave")
+  ]
+};
+
+// ============================================================================
+// 4. SHOW TIMELINE STATE & TRAJECTORY BUILDER
+// ============================================================================
+let showScenes = PRESET_SHOWS.showcase.map(s => JSON.parse(JSON.stringify(s)));
+let skyFxMode = "embers";
+const TAKEOFF_DUR = 5.0;
+const LANDING_DUR = 6.0;
+const PRE_SHOW_DELAY = 3.0;
+const POST_SHOW_DELAY = 4.0;
+let TOTAL_DURATION = 60.0;
+
+// Compiled per-scene drone buffers:
+// compiledScenes[scIdx] = { positions: Float32Array, colors: Float32Array, layerIndices: Uint8Array }
+let compiledScenes = [];
+let selectedMode = { type: "scene", index: 0 }; // "scene" | "transition" | "add"
+
+function getFormationDroneCount() {
+  return skyFxMode === "none" ? MAX_DRONES : (MAX_DRONES - AMBIENT_DRONE_COUNT);
+}
+
+function recalcTotalDuration() {
+  let sum = TAKEOFF_DUR + LANDING_DUR;
+  for (let i = 0; i < showScenes.length; i++) {
+    sum += showScenes[i].dur;
+    if (i < showScenes.length - 1) sum += showScenes[i].transDur;
+  }
+  TOTAL_DURATION = sum;
+  const scrub = document.getElementById("time-scrub");
+  if (scrub) scrub.max = String(TOTAL_DURATION);
+}
+
+// Greedy nearest-neighbor path matcher to prevent drone collisions between scenes
+function matchPaths(prevPos, rawPos, rawLayerIdx, count) {
+  const outPos = new Float32Array(count * 3);
+  const outLayer = new Uint8Array(count);
+  const used = new Uint8Array(count);
+
+  for (let i = 0; i < count; i++) {
+    const px = prevPos[i * 3], py = prevPos[i * 3 + 1], pz = prevPos[i * 3 + 2];
+    let bestJ = 0, bestD = Infinity;
+    for (let j = 0; j < count; j++) {
+      if (used[j]) continue;
+      const dx = rawPos[j * 3] - px, dy = rawPos[j * 3 + 1] - py, dz = rawPos[j * 3 + 2] - pz;
+      const d = dx * dx + dy * dy + dz * dz;
+      if (d < bestD) { bestD = d; bestJ = j; }
+    }
+    used[bestJ] = 1;
+    outPos[i * 3]     = rawPos[bestJ * 3];
+    outPos[i * 3 + 1] = rawPos[bestJ * 3 + 1];
+    outPos[i * 3 + 2] = rawPos[bestJ * 3 + 2];
+    outLayer[i]      = rawLayerIdx[bestJ];
+  }
+  return { positions: outPos, layerIndices: outLayer };
+}
+
+async function compileAllScenes() {
+  recalcTotalDuration();
+  const fCount = getFormationDroneCount();
+  const nextCompiled = [];
+  let prevSlots = groundPositions;
+
+  for (let sIdx = 0; sIdx < showScenes.length; sIdx++) {
+    const sc = showScenes[sIdx];
+    const rawPos = new Float32Array(fCount * 3);
+    const rawLayerIdx = new Uint8Array(fCount);
+
+    const totalWeight = sc.layers.reduce((acc, l) => acc + (l.weight || 1), 0) || 1;
+    let cursor = 0;
+
+    for (let lIdx = 0; lIdx < sc.layers.length; lIdx++) {
+      const layer = sc.layers[lIdx];
+      const lCount = (lIdx === sc.layers.length - 1)
+        ? (fCount - cursor)
+        : Math.max(8, Math.round(( (layer.weight || 1) / totalWeight ) * fCount));
+
+      let pts;
+      if (layer.customPoints && layer.customPoints.length >= lCount * 3) {
+        pts = new Float32Array(lCount * 3);
+        for (let k = 0; k < lCount; k++) {
+          const srcK = k % (layer.customPoints.length / 3);
+          pts[k * 3]     = layer.customPoints[srcK * 3];
+          pts[k * 3 + 1] = layer.customPoints[srcK * 3 + 1];
+          pts[k * 3 + 2] = (layer.zOffset || 0) + (layer.zBulge || 0) * layer.customPoints[srcK * 3 + 2];
+        }
+      } else if (sc.is3D && layer.shape3d) {
+        pts = generate3DLayerPoints(layer.shape3d, layer.partRole, lCount);
+      } else {
+        pts = await sampleSvgLayer(layer.svg || `<circle cx="128" cy="128" r="64" fill="#fff"/>`, lCount, layer.zOffset || 0, layer.zBulge || 0);
+      }
+
+      for (let k = 0; k < lCount && (cursor + k) < fCount; k++) {
+        const dst = cursor + k;
+        rawPos[dst * 3]     = pts[k * 3];
+        rawPos[dst * 3 + 1] = pts[k * 3 + 1];
+        rawPos[dst * 3 + 2] = pts[k * 3 + 2];
+        rawLayerIdx[dst]    = lIdx;
+      }
+      cursor += lCount;
+    }
+
+    const matched = matchPaths(prevSlots, rawPos, rawLayerIdx, fCount);
+    nextCompiled.push(matched);
+    prevSlots = matched.positions;
+  }
+
+  compiledScenes = nextCompiled;
+  saveToLocalStorage();
+}
+
+// ============================================================================
+// 5. REUSABLE LAYER ANIMATIONS & AMBIENT SKY EFFECTS
+// ============================================================================
+const tempColorA = new THREE.Color();
+const tempColorB = new THREE.Color();
+const tempColorOut = new THREE.Color();
+
+function applyLayerMotion(motion, px, py, pz, alt, tScene, uBlock, droneIdx, outVec) {
+  const env = Math.sin(Math.PI * uBlock);
+  let x = px, y = py, z = pz;
+
+  if (motion === "wing_flap") {
+    const side = x >= 0 ? 1 : -1;
+    const distFromBody = Math.max(0, Math.abs(x) - 1.8);
+    const flapAngle = Math.sin(tScene * 6.2) * 0.42 * env;
+    const ca = Math.cos(flapAngle * side), sa = Math.sin(flapAngle * side);
+    const dx = x - side * 1.8, dy = y - alt;
+    x = side * 1.8 + dx * ca - dy * sa;
+    y = alt + dx * sa + dy * ca;
+    z += Math.cos(tScene * 6.2) * (distFromBody * 0.22) * env;
+  } else if (motion === "flame_flicker") {
+    const hNorm = Math.max(0.15, (y - 8.0) / 14.0);
+    x += Math.sin(tScene * 8.5 + y * 1.4 + droneIdx * 0.3) * 0.55 * hNorm * env;
+    y += Math.abs(Math.cos(tScene * 10.0 + x * 1.1)) * 0.65 * hNorm * env;
+    z += Math.sin(tScene * 7.0 + droneIdx) * 0.4 * env;
+  } else if (motion === "hover_bob") {
+    y += Math.sin(tScene * 2.8) * 0.85 * env;
+    z += Math.cos(tScene * 2.2) * 0.35 * env;
+  } else if (motion === "spin_360") {
+    const ang = uBlock * Math.PI * 2.0;
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    const dy = y - alt;
+    const rx = x * ca - dy * sa;
+    const ry = x * sa + dy * ca;
+    x = rx; y = alt + ry;
+  } else if (motion === "wave_sway") {
+    x += Math.sin(tScene * 3.4 + y * 0.45) * 0.75 * env;
+    y += Math.sin(tScene * 3.4 + x * 0.35) * 0.55 * env;
+  } else if (motion === "pulse_3d") {
+    const beat = 1.0 + Math.pow(Math.max(0, Math.sin(tScene * 4.2)), 2.0) * 0.14 * env;
+    x *= beat;
+    y = alt + (y - alt) * beat;
+    z *= beat;
+  } else if (motion === "steam_rise") {
+    const lift = ((tScene * 0.85 + (droneIdx % 17) * 0.06) % 1.0);
+    y += Math.sin(lift * Math.PI) * 1.6 * env;
+    x += Math.sin(tScene * 4.0 + y * 0.8) * 0.55 * env;
+  } else if (motion === "jaw_caw") {
+    const open = Math.pow(Math.max(0, Math.sin(tScene * 5.0)), 1.5) * 1.45 * env;
+    y -= open;
+  } else if (motion === "orbit_ring") {
+    const a = tScene * 1.35 * env;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const rx = x * ca - z * sa;
+    const rz = x * sa + z * ca;
+    x = rx; z = rz;
+  }
+
+  outVec.set(x, y, z);
+}
+
+// Ambient Sky Particle Drones (with invisible return path!)
+function evaluateAmbientDrone(i, tShow) {
+  const seed = ambientSeeds[i];
+  const hx = ambientHomeX[i], hz = ambientHomeZ[i];
+  const cycle = ((tShow / 10.0) + seed) % 1.0;
+  const activeFrac = 0.72; // 72% visible drift, 28% invisible return!
+
+  if (cycle < activeFrac) {
+    const u = cycle / activeFrac;
+    const sway = u * Math.PI * 3.0 + seed * Math.PI * 2.0;
+    if (skyFxMode === "embers") {
+      targetPositions[i * 3]     = hx + Math.sin(sway) * 1.4;
+      targetPositions[i * 3 + 1] = 1.5 + u * 28.0;
+      targetPositions[i * 3 + 2] = hz + Math.cos(sway * 0.8) * 1.4;
+      tempColorOut.set(i % 2 === 0 ? "#ff5500" : "#ffaa00");
+    } else if (skyFxMode === "leaves") {
+      targetPositions[i * 3]     = hx + Math.sin(sway) * 1.8;
+      targetPositions[i * 3 + 1] = 29.5 - u * 28.0;
+      targetPositions[i * 3 + 2] = hz + Math.cos(sway * 0.8) * 1.8;
+      tempColorOut.set(i % 3 === 0 ? "#e51c23" : (i % 3 === 1 ? "#ff8f00" : "#ffd600"));
+    } else if (skyFxMode === "snow") {
+      targetPositions[i * 3]     = hx + Math.sin(sway * 0.7) * 1.1;
+      targetPositions[i * 3 + 1] = 29.5 - u * 28.0;
+      targetPositions[i * 3 + 2] = hz + Math.cos(sway * 0.7) * 1.1;
+      tempColorOut.set(i % 2 === 0 ? "#e0f2fe" : "#7dd3fc");
+    } else {
+      // Fireflies
+      targetPositions[i * 3]     = hx + Math.sin(sway * 1.3) * 2.5;
+      targetPositions[i * 3 + 1] = 4.0 + Math.sin(u * Math.PI) * 18.0;
+      targetPositions[i * 3 + 2] = hz + Math.cos(sway * 1.1) * 2.5;
+      tempColorOut.set(i % 2 === 0 ? "#a3e635" : "#2dd4bf");
+    }
+
+    if (u >= 0.06 && u <= 0.92) {
+      targetColors[i * 3]     = tempColorOut.r;
+      targetColors[i * 3 + 1] = tempColorOut.g;
+      targetColors[i * 3 + 2] = tempColorOut.b;
+      isDroneVisible[i] = 1;
+    } else {
+      targetColors[i * 3] = 0; targetColors[i * 3 + 1] = 0; targetColors[i * 3 + 2] = 0;
+      isDroneVisible[i] = 0;
+    }
+  } else {
+    // Invisible return phase
+    const uRet = (cycle - activeFrac) / (1.0 - activeFrac);
+    const ease = uRet * uRet * (3 - 2 * uRet);
+    targetPositions[i * 3]     = hx;
+    targetPositions[i * 3 + 1] = (skyFxMode === "embers") ? (29.5 - ease * 28.0) : (1.5 + ease * 28.0);
+    targetPositions[i * 3 + 2] = hz;
+    targetColors[i * 3] = 0; targetColors[i * 3 + 1] = 0; targetColors[i * 3 + 2] = 0;
+    isDroneVisible[i] = 0;
+  }
+}
+
+// ============================================================================
+// 6. TIMELINE EVALUATOR (TAKEOFF, FORMATIONS, TRANSITIONS, LANDING, WHITE LOOP)
+// ============================================================================
+const scratchVecA = new THREE.Vector3();
+const scratchVecB = new THREE.Vector3();
+let activePhaseLabel = "Ready";
+let currentPlayingSceneIdx = -1;
+
+function evaluateTimeline(t) {
+  if (compiledScenes.length === 0) return;
+  const fCount = getFormationDroneCount();
+  const showBodyEnd = TOTAL_DURATION - LANDING_DUR;
+  currentPlayingSceneIdx = -1;
+
+  if (t <= TAKEOFF_DUR) {
+    activePhaseLabel = "Takeoff";
+    const u = THREE.MathUtils.clamp(t / TAKEOFF_DUR, 0, 1);
+    const ease = u * u * (3 - 2 * u);
+    const sc0 = showScenes[0];
+    const comp0 = compiledScenes[0];
+
+    for (let i = 0; i < fCount; i++) {
+      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
+      const tx = comp0.positions[i * 3], ty = comp0.positions[i * 3 + 1], tz = comp0.positions[i * 3 + 2];
+      targetPositions[i * 3]     = gx + (tx - gx) * ease;
+      targetPositions[i * 3 + 1] = gy + (ty - gy) * ease;
+      targetPositions[i * 3 + 2] = gz + (tz - gz) * ease;
+
+      const lIdx = comp0.layerIndices[i] % sc0.layers.length;
+      tempColorA.set(sc0.layers[lIdx].color);
+      targetColors[i * 3]     = tempColorA.r * (0.25 + 0.75 * ease);
+      targetColors[i * 3 + 1] = tempColorA.g * (0.25 + 0.75 * ease);
+      targetColors[i * 3 + 2] = tempColorA.b * (0.25 + 0.75 * ease);
+      isDroneVisible[i] = 1;
+    }
+    for (let i = fCount; i < MAX_DRONES; i++) {
+      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
+      evaluateAmbientDrone(i, 0.0);
+      targetPositions[i * 3]     = gx + (targetPositions[i * 3] - gx) * ease;
+      targetPositions[i * 3 + 1] = gy + (targetPositions[i * 3 + 1] - gy) * ease;
+      targetPositions[i * 3 + 2] = gz + (targetPositions[i * 3 + 2] - gz) * ease;
+      targetColors[i * 3] = 0; targetColors[i * 3 + 1] = 0; targetColors[i * 3 + 2] = 0;
+      isDroneVisible[i] = 0;
+    }
+  } else if (t > TAKEOFF_DUR && t < showBodyEnd) {
+    const showT = t - TAKEOFF_DUR;
+    let curT = 0;
+
+    for (let sIdx = 0; sIdx < showScenes.length; sIdx++) {
+      const sc = showScenes[sIdx];
+      const comp = compiledScenes[sIdx];
+      const formStart = curT;
+      const formEnd = formStart + sc.dur;
+      const isLast = (sIdx === showScenes.length - 1);
+      const transEnd = isLast ? formEnd : (formEnd + sc.transDur);
+
+      if (showT >= formStart && showT < formEnd) {
+        currentPlayingSceneIdx = sIdx;
+        activePhaseLabel = `${sIdx + 1}. ${sc.name}`;
+        const tScene = showT - formStart;
+        const uBlock = tScene / sc.dur;
+        const alt = sc.altitude || 16.0;
+        const scl = sc.scale || 1.0;
+        const rotY = THREE.MathUtils.degToRad((sc.rotSpeedY || 0) * tScene);
+        const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+
+        for (let i = 0; i < fCount; i++) {
+          const lIdx = comp.layerIndices[i] % sc.layers.length;
+          const layer = sc.layers[lIdx];
+          applyLayerMotion(
+            layer.motion || "none",
+            comp.positions[i * 3],
+            comp.positions[i * 3 + 1],
+            comp.positions[i * 3 + 2],
+            alt, tScene, uBlock, i, scratchVecA
+          );
+
+          const sx = scratchVecA.x * scl;
+          const sy = (scratchVecA.y - 16.0) * scl + alt;
+          const sz = scratchVecA.z * scl;
+
+          targetPositions[i * 3]     = sx * cosY - sz * sinY;
+          targetPositions[i * 3 + 1] = Math.max(0.25, sy);
+          targetPositions[i * 3 + 2] = sx * sinY + sz * cosY;
+
+          tempColorA.set(layer.color);
+          targetColors[i * 3]     = tempColorA.r;
+          targetColors[i * 3 + 1] = tempColorA.g;
+          targetColors[i * 3 + 2] = tempColorA.b;
+          isDroneVisible[i] = 1;
+        }
+        break;
+      } else if (!isLast && showT >= formEnd && showT < transEnd) {
+        const nextSc = showScenes[sIdx + 1];
+        const nextComp = compiledScenes[sIdx + 1];
+        activePhaseLabel = `${sc.name} → ${nextSc.name}`;
+        const progress = (showT - formEnd) / sc.transDur;
+        const ease = progress * progress * (3 - 2 * progress);
+        const arc = Math.sin(Math.PI * progress);
+        const interpAlt = THREE.MathUtils.lerp(sc.altitude || 16, nextSc.altitude || 16, ease);
+        const motionStyle = sc.transMotion || "ribbon_wave";
+
+        for (let i = 0; i < fCount; i++) {
+          const ax = comp.positions[i * 3], ay = comp.positions[i * 3 + 1], az = comp.positions[i * 3 + 2];
+          const bx = nextComp.positions[i * 3], by = nextComp.positions[i * 3 + 1], bz = nextComp.positions[i * 3 + 2];
+
+          let midX = ax + (bx - ax) * ease;
+          let midY = ay + (by - ay) * ease;
+          let midZ = az + (bz - az) * ease;
+
+          if (motionStyle === "ribbon_wave") {
+            const spatialPhase = midX * 0.14 + (midY - interpAlt) * 0.10;
+            const ribbonWave = progress * Math.PI * 2.2 - spatialPhase;
+            const bankAngle = Math.sin(progress * Math.PI) * 0.35;
+            const cosB = Math.cos(bankAngle), sinB = Math.sin(bankAngle);
+            const relY = midY - interpAlt;
+            const rotX = midX * cosB - relY * sinB;
+            const rotY = midX * sinB + relY * cosB;
+            midX = rotX + Math.sin(ribbonWave) * (arc * 3.5);
+            midY = interpAlt + rotY + Math.cos(ribbonWave) * (arc * 4.2);
+            midZ += Math.sin(ribbonWave + 0.8) * (arc * 5.8);
+          } else if (motionStyle === "vortex") {
+            const dist = Math.sqrt(midX * midX + (midY - interpAlt) ** 2);
+            const angle = Math.atan2(midY - interpAlt, midX) + progress * Math.PI * 2.2;
+            const expand = dist * (1.0 + arc * 0.36);
+            midX = Math.cos(angle) * expand;
+            midY = interpAlt + Math.sin(angle) * expand;
+            midZ += Math.sin(i * 0.15 + progress * Math.PI * 2) * (arc * 4.5);
+          } else if (motionStyle === "helix") {
+            const angle = progress * Math.PI * 2.4 + (i % 24) * (Math.PI / 12);
+            midX += Math.cos(angle) * (8.5 * arc);
+            midY += Math.sin(angle) * (arc * 3.8);
+            midZ += Math.sin(angle) * (8.5 * arc);
+          } else if (motionStyle === "fire_spiral") {
+            const spin = progress * Math.PI * 3.0 + (i % 16) * (Math.PI / 8);
+            const rad = arc * (4.0 + (i % 7) * 0.8);
+            midX += Math.cos(spin) * rad;
+            midY += arc * 4.5 + Math.sin(spin * 1.5) * (arc * 2.2);
+            midZ += Math.sin(spin) * rad;
+          } else if (motionStyle === "celtic_swirl") {
+            const phase = (i / fCount) * Math.PI * 4.0;
+            midX += Math.cos(phase + progress * Math.PI) * (arc * 7.5);
+            midY += Math.sin(progress * Math.PI * 2.0 + phase) * (arc * 4.5);
+            midZ += Math.sin(progress * Math.PI * 3.0 + (i % 5)) * (arc * 6.0);
+          } else if (motionStyle === "lunar_arc") {
+            const flightPhase = progress * Math.PI - (i / fCount) * 0.6;
+            midX += Math.cos(flightPhase * 2.0) * (arc * 6.5);
+            midY += arc * 6.5;
+            midZ += Math.sin(progress * Math.PI * 2.0 + (i % 9) * 0.4) * (arc * 6.5);
+          } else if (motionStyle === "cascade_wave") {
+            const waveX = (midX + 18.0) / 36.0;
+            const phase = progress * Math.PI * 2.5 - waveX * Math.PI * 2.0;
+            midY += Math.sin(phase) * (arc * 6.8);
+            midZ += Math.cos(phase) * (arc * 5.5);
+          } else if (motionStyle === "supernova") {
+            const dx = midX, dy = midY - interpAlt;
+            const len = Math.max(0.2, Math.sqrt(dx * dx + dy * dy));
+            const burst = arc * 11.0;
+            midX += (dx / len) * burst;
+            midY += (dy / len) * burst;
+            midZ += Math.sin(i * 19.3) * (arc * 6.5);
+          }
+
+          targetPositions[i * 3]     = midX;
+          targetPositions[i * 3 + 1] = Math.max(0.4, midY);
+          targetPositions[i * 3 + 2] = midZ;
+          isDroneVisible[i] = 1;
+
+          const lA = sc.layers[comp.layerIndices[i] % sc.layers.length];
+          const lB = nextSc.layers[nextComp.layerIndices[i] % nextSc.layers.length];
+          tempColorA.set(lA.color);
+          tempColorB.set(lB.color);
+          tempColorOut.lerpColors(tempColorA, tempColorB, ease);
+          targetColors[i * 3]     = tempColorOut.r;
+          targetColors[i * 3 + 1] = tempColorOut.g;
+          targetColors[i * 3 + 2] = tempColorOut.b;
+        }
+        break;
+      }
+      curT = transEnd;
+    }
+
+    for (let i = fCount; i < MAX_DRONES; i++) {
+      evaluateAmbientDrone(i, showT);
+    }
+  } else {
+    // Rainbow Finale Swarm & Landing
+    activePhaseLabel = "Finale Swarm & Landing";
+    const landT = t - showBodyEnd;
+    const u = THREE.MathUtils.clamp(landT / LANDING_DUR, 0, 1);
+    const lastIdx = showScenes.length - 1;
+    const lastSc = showScenes[lastIdx];
+    const lastComp = compiledScenes[lastIdx];
+
+    const uExpand = Math.min(1.0, u / 0.35);
+    const easeExpand = uExpand * uExpand * (3 - 2 * uExpand);
+    const uDesc = Math.max(0.0, (u - 0.35) / 0.65);
+    const easeDesc = uDesc * uDesc * (3 - 2 * uDesc);
+
+    for (let i = 0; i < MAX_DRONES; i++) {
+      const gx = groundPositions[i * 3], gy = groundPositions[i * 3 + 1], gz = groundPositions[i * 3 + 2];
+      let tx = gx, ty = 16.0, tz = gz;
+      if (i < fCount) {
+        tx = lastComp.positions[i * 3]; ty = lastComp.positions[i * 3 + 1]; tz = lastComp.positions[i * 3 + 2];
+        const lIdx = lastComp.layerIndices[i] % lastSc.layers.length;
+        tempColorA.set(lastSc.layers[lIdx].color);
+      } else {
+        tx = ambientHomeX[i]; ty = 18.0; tz = ambientHomeZ[i];
+        tempColorA.set("#ff9100");
+      }
+
+      const phi = Math.acos(1.0 - 2.0 * ((i + 0.5) / MAX_DRONES));
+      const theta = i * GOLDEN + landT * 1.6;
+      const rSwarm = 20.0 + Math.sin(landT * 3.0 + i * 0.15) * 4.0;
+      const sx = Math.sin(phi) * Math.cos(theta) * rSwarm;
+      const sy = 16.0 + Math.cos(phi) * (rSwarm * 0.7);
+      const sz = Math.sin(phi) * Math.sin(theta) * rSwarm;
+
+      const curX = THREE.MathUtils.lerp(tx, sx, easeExpand);
+      const curY = THREE.MathUtils.lerp(ty, sy, easeExpand);
+      const curZ = THREE.MathUtils.lerp(tz, sz, easeExpand);
+
+      const spiralAngle = (1.0 - easeDesc) * Math.PI * 3.5 + (i % 3) * (Math.PI * 2 / 3);
+      const spiralRad = Math.sin(Math.PI * easeDesc) * 6.5;
+
+      targetPositions[i * 3]     = THREE.MathUtils.lerp(curX, gx, easeDesc) + Math.cos(spiralAngle) * spiralRad;
+      targetPositions[i * 3 + 1] = Math.max(0.15, THREE.MathUtils.lerp(curY, gy, easeDesc));
+      targetPositions[i * 3 + 2] = THREE.MathUtils.lerp(curZ, gz, easeDesc) + Math.sin(spiralAngle) * spiralRad;
+
+      const hue = (landT * 0.4 + (i / MAX_DRONES) * 0.6) % 1.0;
+      tempColorB.setHSL(hue, 1.0, 0.58);
+      tempColorOut.lerpColors(tempColorA, tempColorB, easeExpand);
+      targetColors[i * 3]     = tempColorOut.r;
+      targetColors[i * 3 + 1] = tempColorOut.g;
+      targetColors[i * 3 + 2] = tempColorOut.b;
+      isDroneVisible[i] = 1;
+    }
+  }
+}
+
+// Ground-Pad White Loop Transition between performances
+function applyGroundPadWhiteTransition(phase, uPhase) {
+  const fCount = getFormationDroneCount();
+  if (phase === "POST_SHOW") {
+    evaluateTimeline(TOTAL_DURATION);
+    activePhaseLabel = "Ground Pad — Fading to White";
+    const u = THREE.MathUtils.clamp((uPhase - 0.1) / 0.75, 0, 1);
+    const ease = u * u * (3 - 2 * u);
+    for (let i = 0; i < MAX_DRONES; i++) {
+      targetPositions[i * 3]     = groundPositions[i * 3];
+      targetPositions[i * 3 + 1] = groundPositions[i * 3 + 1];
+      targetPositions[i * 3 + 2] = groundPositions[i * 3 + 2];
+      targetColors[i * 3]     += (1.0 - targetColors[i * 3]) * ease;
+      targetColors[i * 3 + 1] += (1.0 - targetColors[i * 3 + 1]) * ease;
+      targetColors[i * 3 + 2] += (1.0 - targetColors[i * 3 + 2]) * ease;
+      isDroneVisible[i] = 1;
+    }
+  } else {
+    evaluateTimeline(0.0);
+    activePhaseLabel = "Ground Pad — Warming Up";
+    const uForm = THREE.MathUtils.clamp((uPhase - 0.15) / 0.80, 0, 1);
+    const easeForm = uForm * uForm * (3 - 2 * uForm);
+    const uLeaf = THREE.MathUtils.clamp((uPhase - 0.10) / 0.68, 0, 1);
+    const easeLeaf = uLeaf * uLeaf * (3 - 2 * uLeaf);
+    for (let i = 0; i < fCount; i++) {
+      targetPositions[i * 3]     = groundPositions[i * 3];
+      targetPositions[i * 3 + 1] = groundPositions[i * 3 + 1];
+      targetPositions[i * 3 + 2] = groundPositions[i * 3 + 2];
+      targetColors[i * 3]     = 1.0 + (targetColors[i * 3] - 1.0) * easeForm;
+      targetColors[i * 3 + 1] = 1.0 + (targetColors[i * 3 + 1] - 1.0) * easeForm;
+      targetColors[i * 3 + 2] = 1.0 + (targetColors[i * 3 + 2] - 1.0) * easeForm;
+      isDroneVisible[i] = 1;
+    }
+    for (let i = fCount; i < MAX_DRONES; i++) {
+      targetPositions[i * 3]     = groundPositions[i * 3];
+      targetPositions[i * 3 + 1] = groundPositions[i * 3 + 1];
+      targetPositions[i * 3 + 2] = groundPositions[i * 3 + 2];
+      if (easeLeaf < 0.96) {
+        const w = 1.0 - easeLeaf;
+        targetColors[i * 3] = w; targetColors[i * 3 + 1] = w; targetColors[i * 3 + 2] = w;
+        isDroneVisible[i] = 1;
+      } else {
+        targetColors[i * 3] = 0; targetColors[i * 3 + 1] = 0; targetColors[i * 3 + 2] = 0;
+        isDroneVisible[i] = 0;
+      }
+    }
+  }
+}
+
+// ============================================================================
+// 7. 2-TIER SPATIAL UI: TIMELINE STRIP + SINGLE CONTEXTUAL INSPECTOR DRAWER
+// ============================================================================
+const MOTION_OPTIONS = [
+  { id: "none", label: "Static" },
+  { id: "wing_flap", label: "🦅 Wing Flap" },
+  { id: "flame_flicker", label: "🔥 Flame Flicker" },
+  { id: "hover_bob", label: "🎈 Hover Bob" },
+  { id: "spin_360", label: "↻ Spin 360°" },
+  { id: "wave_sway", label: "🌊 Wave Sway" },
+  { id: "pulse_3d", label: "💓 3D Pulse" },
+  { id: "steam_rise", label: "💨 Rising Steam" },
+  { id: "jaw_caw", label: "🗣️ Jaw / Beak Open" },
+  { id: "orbit_ring", label: "🪐 3D Orbit" }
+];
+
+const TRANSITION_OPTIONS = [
+  { id: "ribbon_wave", label: "〰️ 3D Ribbon Wave" },
+  { id: "vortex", label: "🌀 Galactic Vortex" },
+  { id: "helix", label: "🧬 Double Helix" },
+  { id: "fire_spiral", label: "🔥 Fire Spiral" },
+  { id: "celtic_swirl", label: "♾️ Harmonic Swirl" },
+  { id: "lunar_arc", label: "🌙 Lunar Arc" },
+  { id: "cascade_wave", label: "🌊 Stadium Wave" },
+  { id: "supernova", label: "💥 Supernova Burst" }
+];
+
+function getSceneStartTime(idx) {
+  let t = TAKEOFF_DUR;
+  for (let i = 0; i < idx; i++) {
+    t += showScenes[i].dur + showScenes[i].transDur;
+  }
+  return t;
+}
+
+function jumpToTime(t) {
+  showState = "RUNNING";
+  playheadTime = THREE.MathUtils.clamp(t, 0, TOTAL_DURATION);
+  evaluateTimeline(playheadTime);
+}
+
+function renderTimelineStrip() {
+  const strip = document.getElementById("scenes-strip");
+  strip.innerHTML = "";
+
+  showScenes.forEach((sc, idx) => {
+    const card = document.createElement("div");
+    const isSel = (selectedMode.type === "scene" && selectedMode.index === idx);
+    card.className = `scene-card ${isSel ? "selected" : ""} ${currentPlayingSceneIdx === idx ? "playing" : ""}`;
+    card.innerHTML = `
+      <div class="scene-card-top">
+        <span class="scene-card-title">${idx + 1}. ${sc.name}</span>
+        <span class="scene-type-tag ${sc.is3D ? "tag-3d" : ""}">${sc.is3D ? "3D" : "2.5D"}</span>
+      </div>
+      <div class="scene-swatches">
+        ${sc.layers.map(l => `<span class="swatch-dot" style="background:${l.color}" title="${l.name}"></span>`).join("")}
+        <span style="margin-left:auto; font-size:10px; color:var(--text-muted);">${sc.dur}s</span>
+      </div>
+    `;
+    card.addEventListener("click", () => {
+      selectedMode = { type: "scene", index: idx };
+      jumpToTime(getSceneStartTime(idx) + 0.6);
+      renderTimelineStrip();
+      renderContextDrawer();
+    });
+    strip.appendChild(card);
+
+    // Transition Connector Pill between scenes
+    if (idx < showScenes.length - 1) {
+      const conn = document.createElement("div");
+      const isTransSel = (selectedMode.type === "transition" && selectedMode.index === idx);
+      const tLabel = (TRANSITION_OPTIONS.find(o => o.id === sc.transMotion) || { label: sc.transMotion }).label.split(" ")[0];
+      conn.className = `trans-connector ${isTransSel ? "selected" : ""}`;
+      conn.innerHTML = `${tLabel} →`;
+      conn.title = "Click to customize transition flight path";
+      conn.addEventListener("click", () => {
+        selectedMode = { type: "transition", index: idx };
+        jumpToTime(getSceneStartTime(idx) + sc.dur + sc.transDur * 0.45);
+        renderTimelineStrip();
+        renderContextDrawer();
+      });
+      strip.appendChild(conn);
+    }
+  });
+
+  const addBtn = document.createElement("div");
+  addBtn.className = `add-scene-card ${selectedMode.type === "add" ? "selected" : ""}`;
+  addBtn.innerHTML = `➕ Add Formation`;
+  addBtn.addEventListener("click", () => {
+    selectedMode = { type: "add", index: showScenes.length };
+    renderTimelineStrip();
+    renderContextDrawer();
+  });
+  strip.appendChild(addBtn);
+}
+
+function renderContextDrawer() {
+  const drawer = document.getElementById("context-drawer");
+  drawer.innerHTML = "";
+
+  if (selectedMode.type === "scene") {
+    const idx = Math.min(selectedMode.index, showScenes.length - 1);
+    const sc = showScenes[idx];
+    if (!sc) return;
+
+    const header = document.createElement("div");
+    header.className = "drawer-header";
+    header.innerHTML = `
+      <div class="drawer-title">
+        <span>🎨 Editing Scene ${idx + 1}: <strong>${sc.name}</strong></span>
+        <span class="badge">${sc.is3D ? "True 3D Volumetric" : `${sc.layers.length} Anatomical Layers`}</span>
+      </div>
+      <div class="drawer-controls">
+        <div class="ctrl-pill">
+          <label>Hold:</label>
+          <input type="range" id="sc-dur" min="3" max="14" step="0.5" value="${sc.dur}" />
+          <span id="sc-dur-val">${sc.dur}s</span>
+        </div>
+        <div class="ctrl-pill">
+          <label>3D Turntable Spin:</label>
+          <input type="range" id="sc-rot" min="-90" max="90" step="5" value="${sc.rotSpeedY || 0}" />
+          <span id="sc-rot-val">${sc.rotSpeedY || 0}°/s</span>
+        </div>
+        <div class="ctrl-pill">
+          <label>Scale:</label>
+          <input type="range" id="sc-scale" min="0.6" max="1.5" step="0.05" value="${sc.scale || 1.0}" />
+          <span id="sc-scale-val">${(sc.scale || 1.0).toFixed(2)}x</span>
+        </div>
+        ${showScenes.length > 1 ? `<button class="btn btn-danger" id="btn-del-scene">🗑️ Remove</button>` : ""}
+      </div>
+    `;
+    drawer.appendChild(header);
+
+    // Layer cards row
+    const layersRow = document.createElement("div");
+    layersRow.className = "layers-row";
+
+    sc.layers.forEach((layer, lIdx) => {
+      const lCard = document.createElement("div");
+      lCard.className = "layer-card";
+      lCard.innerHTML = `
+        <div class="layer-card-top">
+          <span class="layer-name">${layer.name}</span>
+          <input type="color" class="color-swatch-input" value="${layer.color}" data-lidx="${lIdx}" title="Live LED Color" />
+        </div>
+        <div class="layer-card-bottom">
+          <select class="layer-motion-select" data-lidx="${lIdx}" title="Layer Animation">
+            ${MOTION_OPTIONS.map(m => `<option value="${m.id}" ${layer.motion === m.id ? "selected" : ""}>${m.label}</option>`).join("")}
+          </select>
+          ${!sc.is3D ? `
+            <div class="mini-slider" title="Push this part forward/backward in 3D Z-space">
+              <span>Z:</span>
+              <input type="range" class="layer-z-slider" data-lidx="${lIdx}" min="-7" max="7" step="0.5" value="${layer.zOffset || 0}" />
+            </div>
+            <div class="mini-slider" title="3D spherical volume bulge">
+              <span>3D:</span>
+              <input type="range" class="layer-bulge-slider" data-lidx="${lIdx}" min="0" max="1.2" step="0.1" value="${layer.zBulge || 0}" />
+            </div>
+          ` : ""}
+        </div>
+      `;
+      layersRow.appendChild(lCard);
+    });
+    drawer.appendChild(layersRow);
+
+    // Bind events
+    drawer.querySelector("#sc-dur").addEventListener("input", e => {
+      sc.dur = parseFloat(e.target.value);
+      drawer.querySelector("#sc-dur-val").textContent = sc.dur + "s";
+      recalcTotalDuration();
+      renderTimelineStrip();
+    });
+    drawer.querySelector("#sc-rot").addEventListener("input", e => {
+      sc.rotSpeedY = parseFloat(e.target.value);
+      drawer.querySelector("#sc-rot-val").textContent = sc.rotSpeedY + "°/s";
+    });
+    drawer.querySelector("#sc-scale").addEventListener("input", e => {
+      sc.scale = parseFloat(e.target.value);
+      drawer.querySelector("#sc-scale-val").textContent = sc.scale.toFixed(2) + "x";
+    });
+    const delBtn = drawer.querySelector("#btn-del-scene");
+    if (delBtn) {
+      delBtn.addEventListener("click", async () => {
+        showScenes.splice(idx, 1);
+        selectedMode.index = Math.max(0, idx - 1);
+        await compileAllScenes();
+        renderTimelineStrip();
+        renderContextDrawer();
+      });
+    }
+
+    drawer.querySelectorAll(".color-swatch-input").forEach(inp => {
+      inp.addEventListener("input", e => {
+        const lIdx = parseInt(e.target.dataset.lidx, 10);
+        sc.layers[lIdx].color = e.target.value;
+        renderTimelineStrip();
+        saveToLocalStorage();
+      });
+    });
+    drawer.querySelectorAll(".layer-motion-select").forEach(sel => {
+      sel.addEventListener("change", e => {
+        const lIdx = parseInt(e.target.dataset.lidx, 10);
+        sc.layers[lIdx].motion = e.target.value;
+        saveToLocalStorage();
+      });
+    });
+    drawer.querySelectorAll(".layer-z-slider").forEach(sl => {
+      sl.addEventListener("change", async e => {
+        const lIdx = parseInt(e.target.dataset.lidx, 10);
+        sc.layers[lIdx].zOffset = parseFloat(e.target.value);
+        await compileAllScenes();
+      });
+    });
+    drawer.querySelectorAll(".layer-bulge-slider").forEach(sl => {
+      sl.addEventListener("change", async e => {
+        const lIdx = parseInt(e.target.dataset.lidx, 10);
+        sc.layers[lIdx].zBulge = parseFloat(e.target.value);
+        await compileAllScenes();
+      });
+    });
+
+  } else if (selectedMode.type === "transition") {
+    const idx = selectedMode.index;
+    const sc = showScenes[idx];
+    const nextSc = showScenes[idx + 1];
+    if (!sc || !nextSc) return;
+
+    drawer.innerHTML = `
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <span>✈️ Transition Flight Path: <strong>${sc.name} → ${nextSc.name}</strong></span>
+        </div>
+        <div class="drawer-controls">
+          <div class="ctrl-pill">
+            <label>Transition Duration:</label>
+            <input type="range" id="tr-dur" min="2" max="8" step="0.5" value="${sc.transDur}" />
+            <span id="tr-dur-val">${sc.transDur}s</span>
+          </div>
+        </div>
+      </div>
+      <div class="chip-grid">
+        ${TRANSITION_OPTIONS.map(opt => `
+          <div class="choice-chip ${sc.transMotion === opt.id ? "active" : ""}" data-tr="${opt.id}">
+            ${opt.label}
+          </div>
+        `).join("")}
+      </div>
+    `;
+    drawer.querySelector("#tr-dur").addEventListener("input", e => {
+      sc.transDur = parseFloat(e.target.value);
+      drawer.querySelector("#tr-dur-val").textContent = sc.transDur + "s";
+      recalcTotalDuration();
+    });
+    drawer.querySelectorAll(".choice-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        sc.transMotion = chip.dataset.tr;
+        jumpToTime(getSceneStartTime(idx) + sc.dur + sc.transDur * 0.45);
+        renderTimelineStrip();
+        renderContextDrawer();
+        saveToLocalStorage();
+      });
+    });
+
+  } else if (selectedMode.type === "add") {
+    drawer.innerHTML = `
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <span>➕ Add Formation to Timeline (Click any 2.5D or True 3D Preset, Import Image, or Ask AI Director)</span>
+        </div>
+      </div>
+      <div class="chip-grid">
+        ${Object.keys(FORMATION_LIBRARY).map(key => {
+          const item = FORMATION_LIBRARY[key];
+          return `<div class="choice-chip" data-lib="${key}">
+            <span>${item.is3D ? "🟢 3D" : "🎨 2.5D"}</span>
+            <strong>${item.name}</strong>
+          </div>`;
+        }).join("")}
+      </div>
+    `;
+    drawer.querySelectorAll(".choice-chip").forEach(chip => {
+      chip.addEventListener("click", async () => {
+        const key = chip.dataset.lib;
+        const newSc = cloneSceneFromTemplate(key);
+        showScenes.push(newSc);
+        await compileAllScenes();
+        const newIdx = showScenes.length - 1;
+        selectedMode = { type: "scene", index: newIdx };
+        jumpToTime(getSceneStartTime(newIdx) + 0.6);
+        renderTimelineStrip();
+        renderContextDrawer();
+      });
+    });
+  }
+}
+
+// ============================================================================
+// 8. AI DIRECTOR CHAT / VOICE COMMAND ENGINE (LOCAL + GEMINI FLASH LIVE API)
+// ============================================================================
+function appendChatMessage(role, html) {
+  const box = document.getElementById("chat-messages");
+  const msg = document.createElement("div");
+  msg.className = `chat-msg ${role}`;
+  msg.innerHTML = html;
+  box.appendChild(msg);
+  box.scrollTop = box.scrollHeight;
+}
+
+// Procedural SVG fallback generator when user prompts something completely novel without an API key
+function buildProceduralFormationFromPrompt(promptText) {
+  const lower = promptText.toLowerCase();
+  if (lower.includes("phoenix") || lower.includes("firebird") || lower.includes("bird")) return cloneSceneFromTemplate("phoenix");
+  if (lower.includes("saturn") || lower.includes("planet") || lower.includes("ring")) return cloneSceneFromTemplate("saturn3d");
+  if (lower.includes("jelly") || lower.includes("squid") || lower.includes("octopus")) return cloneSceneFromTemplate("jellyfish3d");
+  if (lower.includes("dragon") || lower.includes("wyvern")) return cloneSceneFromTemplate("dragon");
+  if (lower.includes("wolf") || lower.includes("moon") || lower.includes("howl")) return cloneSceneFromTemplate("wolf_moon");
+  if (lower.includes("ufo") || lower.includes("alien") || lower.includes("cow") || lower.includes("saucer")) return cloneSceneFromTemplate("ufo_cow");
+  if (lower.includes("heart") || lower.includes("love")) return cloneSceneFromTemplate("heart3d");
+  if (lower.includes("dna") || lower.includes("helix")) return cloneSceneFromTemplate("dna3d");
+  if (lower.includes("crown") || lower.includes("king") || lower.includes("queen") || lower.includes("royalty")) return cloneSceneFromTemplate("crown3d");
+  if (lower.includes("galaxy") || lower.includes("spiral") || lower.includes("cosmos")) return cloneSceneFromTemplate("galaxy3d");
+  if (lower.includes("skull") || lower.includes("skeleton") || lower.includes("pirate")) return cloneSceneFromTemplate("skull_flames");
+  if (lower.includes("boat") || lower.includes("ship") || lower.includes("sail") || lower.includes("ocean")) return cloneSceneFromTemplate("sailboat");
+
+  // Dynamic Multi-Part Starburst / Emblem for arbitrary custom concepts without API key
+  const cleanTitle = promptText.replace(/^(add|create|make|build)\s+(a|an|the)?\s*/i, "").slice(0, 22) || "Custom Star Emblem";
+  return {
+    id: "sc_" + Math.random().toString(36).slice(2, 8),
+    name: cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1),
+    is3D: false,
+    dur: 6.0,
+    transDur: 3.5,
+    transMotion: "ribbon_wave",
+    altitude: 16.0,
+    scale: 1.0,
+    rotSpeedY: 25,
+    layers: [
+      {
+        name: "Outer Wings / Rays",
+        color: "#38bdf8",
+        motion: lower.includes("flap") ? "wing_flap" : "spin_360",
+        weight: 0.45,
+        zOffset: -1.0,
+        zBulge: 0.4,
+        svg: `<polygon fill="#fff" points="128,16 154,94 236,94 170,142 194,222 128,174 62,222 86,142 20,94 102,94"/>`
+      },
+      {
+        name: "Glowing Core",
+        color: "#f43f5e",
+        motion: "pulse_3d",
+        weight: 0.35,
+        zOffset: 1.5,
+        zBulge: 0.6,
+        svg: `<circle cx="128" cy="128" r="38" fill="#fff"/>`
+      },
+      {
+        name: "Rising Aura",
+        color: "#facc15",
+        motion: "flame_flicker",
+        weight: 0.20,
+        zOffset: 0.0,
+        zBulge: 0.2,
+        svg: `<circle cx="128" cy="128" r="88" fill="none" stroke="#fff" stroke-width="10" stroke-dasharray="18,14"/>`
+      }
+    ]
+  };
+}
+
+async function callGeminiFlashForSvgFormation(promptText, apiKey) {
+  const sysPrompt = `You are a 3D Drone Show Formation Designer. Return ONLY valid JSON (no markdown fences) for a multi-layer animated SVG formation on a 256x256 viewBox.
+Schema:
+{
+  "name": "Short Title",
+  "rotSpeedY": 0,
+  "transMotion": "ribbon_wave" | "vortex" | "helix" | "fire_spiral" | "lunar_arc",
+  "layers": [
+    {
+      "name": "Part Name (e.g. Wings, Body, Flames)",
+      "color": "#hexcolor",
+      "motion": "wing_flap" | "flame_flicker" | "hover_bob" | "spin_360" | "wave_sway" | "pulse_3d" | "steam_rise" | "jaw_caw",
+      "weight": 0.35,
+      "zOffset": 0.0,
+      "zBulge": 0.3,
+      "svg": "<path fill='#fff' d='...'/>"
+    }
+  ]
+}
+Use 2 to 4 distinct anatomical layers with bold white (#fff) fills/strokes inside each layer's svg field so pixels sample cleanly.`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: `${sysPrompt}\n\nUser request: ${promptText}` }] }],
+      generationConfig: { responseMimeType: "application/json" }
+    })
+  });
+  if (!res.ok) throw new Error(`Gemini API HTTP ${res.status}`);
+  const data = await res.json();
+  const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  const parsed = JSON.parse(rawText);
+  return {
+    id: "sc_" + Math.random().toString(36).slice(2, 8),
+    name: parsed.name || "AI Formation",
+    is3D: false,
+    dur: 6.0,
+    transDur: 3.5,
+    transMotion: parsed.transMotion || "ribbon_wave",
+    altitude: 16.0,
+    scale: 1.0,
+    rotSpeedY: parsed.rotSpeedY || 0,
+    layers: (parsed.layers || []).map(l => ({
+      name: l.name || "Layer",
+      color: l.color || "#38bdf8",
+      motion: l.motion || "hover_bob",
+      weight: l.weight || 0.33,
+      zOffset: l.zOffset || 0,
+      zBulge: l.zBulge || 0.3,
+      svg: l.svg || `<circle cx="128" cy="128" r="64" fill="#fff"/>`
+    }))
+  };
+}
+
+async function handleDirectorPrompt(rawText) {
+  const text = rawText.trim();
+  if (!text) return;
+  appendChatMessage("user", text);
+  const lower = text.toLowerCase();
+
+  const curIdx = (selectedMode.type === "scene") ? selectedMode.index : (showScenes.length - 1);
+  const curSc = showScenes[curIdx] || showScenes[0];
+
+  // 1. Check for modification commands on current formation ("make it 3D", "color", "spin", etc.)
+  if (lower.includes("3d depth") || lower.includes("3d curve") || lower.includes("curved")) {
+    curSc.rotSpeedY = 30;
+    curSc.layers.forEach((l, i) => {
+      l.zOffset = (i - 1) * 2.5;
+      l.zBulge = 0.75;
+    });
+    await compileAllScenes();
+    renderContextDrawer();
+    appendChatMessage("ai", `✨ Added <strong>2.5D Z-Depth layering</strong>, spherical <strong>3D volume bulge</strong>, and a <strong>30°/s 3D turntable rotation</strong> to <em>${curSc.name}</em>!`);
+    return;
+  }
+
+  if (lower.startsWith("remove") || lower.startsWith("delete")) {
+    if (showScenes.length > 1) {
+      const removed = showScenes.splice(curIdx, 1)[0];
+      selectedMode = { type: "scene", index: Math.max(0, curIdx - 1) };
+      await compileAllScenes();
+      renderTimelineStrip();
+      renderContextDrawer();
+      appendChatMessage("ai", `🗑️ Removed <strong>${removed.name}</strong> from the timeline.`);
+    }
+    return;
+  }
+
+  // 2. Check for ambient sky FX commands
+  if (lower.includes("snow")) {
+    skyFxMode = "snow"; document.getElementById("sky-fx-select").value = "snow";
+    await compileAllScenes();
+    appendChatMessage("ai", `❄️ Switched ambient sky drones to <strong>Winter Snowfall</strong>.`);
+    return;
+  }
+  if (lower.includes("ember") || lower.includes("sparks")) {
+    skyFxMode = "embers"; document.getElementById("sky-fx-select").value = "embers";
+    await compileAllScenes();
+    appendChatMessage("ai", `🔥 Switched ambient sky drones to <strong>Rising Embers</strong>.`);
+    return;
+  }
+  if (lower.includes("leaves") || lower.includes("autumn")) {
+    skyFxMode = "leaves"; document.getElementById("sky-fx-select").value = "leaves";
+    await compileAllScenes();
+    appendChatMessage("ai", `🍂 Switched ambient sky drones to <strong>Falling Autumn Leaves</strong>.`);
+    return;
+  }
+
+  // 3. Adding a new formation (via Gemini Flash if key is saved & not a 3D built-in, otherwise instant built-in synthesizer)
+  const savedKey = localStorage.getItem("dsd_gemini_api_key") || "";
+  const isBuiltInMatch = /phoenix|saturn|jelly|dragon|wolf|moon|ufo|cow|heart|dna|crown|galaxy|skull|boat|ship/.test(lower);
+
+  let newScene = null;
+  if (savedKey && !isBuiltInMatch) {
+    appendChatMessage("ai", `⚡ Calling <strong>Gemini 2.5 Flash</strong> to synthesize multi-layer animated SVG for <em>"${text}"</em>...`);
+    try {
+      newScene = await callGeminiFlashForSvgFormation(text, savedKey);
+    } catch (err) {
+      appendChatMessage("ai", `⚠️ Gemini API error (${err.message}). Using built-in multi-layer synthesizer instead.`);
+      newScene = buildProceduralFormationFromPrompt(text);
+    }
+  } else {
+    newScene = buildProceduralFormationFromPrompt(text);
+  }
+
+  showScenes.push(newScene);
+  await compileAllScenes();
+  const newIdx = showScenes.length - 1;
+  selectedMode = { type: "scene", index: newIdx };
+  jumpToTime(getSceneStartTime(newIdx) + 0.6);
+  renderTimelineStrip();
+  renderContextDrawer();
+
+  const layerSummary = newScene.layers.map(l => `<span style="color:${l.color}">● ${l.name}</span> (<em>${l.motion}</em>)`).join(", ");
+  appendChatMessage(
+    "ai",
+    `✅ Added <strong>${newScene.name}</strong> (${newScene.is3D ? "True 3D Volume" : "Multi-Layer 2.5D"}) as Scene #${newIdx + 1}!<br/>Layers: ${layerSummary}`
+  );
+}
+
+// ============================================================================
+// 9. IMAGE IMPORTER (AUTO COLOR-CLUSTER QUANTIZER INTO EDITABLE LAYERS!)
+// ============================================================================
+document.getElementById("btn-import-img").addEventListener("click", () => {
+  document.getElementById("file-import-img").click();
+});
+
+document.getElementById("file-import-img").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = async () => {
+      offCtx.clearRect(0, 0, 256, 256);
+      offCtx.drawImage(img, 0, 0, 256, 256);
+      const data = offCtx.getImageData(0, 0, 256, 256).data;
+
+      // Group bright pixels into 3 color buckets (Warm/Red-Yellow, Cool/Green-Cyan-Blue, Bright/White-Neutral)
+      const buckets = [
+        { name: "Warm Highlights", color: "#ff5500", motion: "flame_flicker", pts: [] },
+        { name: "Cool Accents",    color: "#38bdf8", motion: "hover_bob",     pts: [] },
+        { name: "Core Structure",  color: "#ffffff", motion: "pulse_3d",      pts: [] }
+      ];
+
+      for (let y = 0; y < 256; y += 2) {
+        for (let x = 0; x < 256; x += 2) {
+          const idx = (y * 256 + x) * 4;
+          const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
+          const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+          if (a < 64 || maxC < 42) continue;
+
+          const nx = (x / 256 - 0.5) * 27.0;
+          const ny = (0.5 - y / 256) * 25.0 + 16.0;
+          const nz = (maxC / 255 - 0.5) * 2.5;
+
+          const sat = maxC - minC;
+          if (sat < 45) {
+            buckets[2].pts.push(nx, ny, nz);
+          } else if (r >= g && r >= b) {
+            buckets[0].pts.push(nx, ny, nz);
+          } else {
+            buckets[1].pts.push(nx, ny, nz);
+          }
+        }
+      }
+
+      const validLayers = buckets.filter(b => b.pts.length >= 18).map(b => ({
+        name: b.name,
+        color: b.color,
+        motion: b.motion,
+        weight: b.pts.length,
+        zOffset: 0,
+        zBulge: 0.3,
+        customPoints: b.pts
+      }));
+
+      if (validLayers.length === 0) {
+        appendChatMessage("ai", `⚠️ Could not find enough bright pixels in <em>${file.name}</em>.`);
+        return;
+      }
+
+      const cleanName = file.name.replace(/\.[^.]+$/, "").slice(0, 18);
+      showScenes.push({
+        id: "sc_" + Math.random().toString(36).slice(2, 8),
+        name: cleanName,
+        is3D: false,
+        dur: 6.0,
+        transDur: 3.5,
+        transMotion: "ribbon_wave",
+        altitude: 16.0,
+        scale: 1.0,
+        rotSpeedY: 15,
+        layers: validLayers
+      });
+
+      await compileAllScenes();
+      const newIdx = showScenes.length - 1;
+      selectedMode = { type: "scene", index: newIdx };
+      jumpToTime(getSceneStartTime(newIdx) + 0.6);
+      renderTimelineStrip();
+      renderContextDrawer();
+      appendChatMessage("ai", `🖼️ Imported <strong>${cleanName}</strong> and segmented it into <strong>${validLayers.length} editable color layers</strong>!`);
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// ============================================================================
+// 10. SAVE / LOAD SHOW JSON & LOCALSTORAGE AUTO-PERSISTENCE
+// ============================================================================
+function saveToLocalStorage() {
+  try {
+    localStorage.setItem("dsd_autosave_v1", JSON.stringify({ skyFxMode, showScenes }));
+  } catch (e) {}
+}
+
+document.getElementById("btn-save-json").addEventListener("click", () => {
+  const payload = JSON.stringify({ version: 1, skyFxMode, showScenes }, null, 2);
+  const blob = new Blob([payload], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "drone_show_project.json";
+  a.click();
+  appendChatMessage("ai", `💾 Downloaded <strong>drone_show_project.json</strong> (${(payload.length / 1024).toFixed(1)} KB).`);
+});
+
+document.getElementById("btn-load-json").addEventListener("click", () => {
+  document.getElementById("file-load-json").click();
+});
+
+document.getElementById("file-load-json").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (Array.isArray(data.showScenes) && data.showScenes.length > 0) {
+        showScenes = data.showScenes;
+        skyFxMode = data.skyFxMode || "embers";
+        document.getElementById("sky-fx-select").value = skyFxMode;
+        selectedMode = { type: "scene", index: 0 };
+        await compileAllScenes();
+        jumpToTime(TAKEOFF_DUR + 0.6);
+        renderTimelineStrip();
+        renderContextDrawer();
+        appendChatMessage("ai", `📂 Loaded <strong>${file.name}</strong> (${showScenes.length} formations)!`);
+      }
+    } catch (err) {
+      appendChatMessage("ai", `⚠️ Invalid show JSON file.`);
+    }
+  };
+  reader.readAsText(file);
+});
+
+// ============================================================================
+// 11. UI EVENT BINDINGS (CHAT, VOICE MIC, PRESETS, AR/VR, TRANSPORT)
+// ============================================================================
+document.getElementById("btn-chat-send").addEventListener("click", () => {
+  const inp = document.getElementById("chat-input");
+  handleDirectorPrompt(inp.value);
+  inp.value = "";
+});
+document.getElementById("chat-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    handleDirectorPrompt(e.target.value);
+    e.target.value = "";
+  }
+});
+document.querySelectorAll(".prompt-chip").forEach(chip => {
+  chip.addEventListener("click", () => handleDirectorPrompt(chip.dataset.prompt));
+});
+
+document.getElementById("chat-header-toggle").addEventListener("click", () => {
+  const dock = document.getElementById("ai-chat-dock");
+  dock.classList.toggle("minimized");
+  document.getElementById("chat-toggle-label").textContent = dock.classList.contains("minimized") ? "Expand ▴" : "Minimize ▾";
+});
+
+// Web Speech API Microphone Button
+document.getElementById("btn-mic-voice").addEventListener("click", () => {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    appendChatMessage("ai", `🎤 Browser speech recognition isn't supported in this window—type in the chat box below to test voice commands!`);
+    return;
+  }
+  const rec = new SpeechRec();
+  rec.lang = "en-US";
+  const micBtn = document.getElementById("btn-mic-voice");
+  micBtn.textContent = "🔴";
+  rec.onresult = ev => {
+    const transcript = ev.results[0][0].transcript;
+    micBtn.textContent = "🎤";
+    handleDirectorPrompt(transcript);
+  };
+  rec.onerror = () => { micBtn.textContent = "🎤"; };
+  rec.onend = () => { micBtn.textContent = "🎤"; };
+  rec.start();
+});
+
+// Preset Show Selector
+document.getElementById("preset-show-select").addEventListener("change", async e => {
+  const key = e.target.value;
+  if (PRESET_SHOWS[key]) {
+    showScenes = PRESET_SHOWS[key].map(s => JSON.parse(JSON.stringify(s)));
+    selectedMode = { type: "scene", index: 0 };
+    await compileAllScenes();
+    jumpToTime(TAKEOFF_DUR + 0.6);
+    renderTimelineStrip();
+    renderContextDrawer();
+  }
+});
+
+// Sky FX Selector
+document.getElementById("sky-fx-select").addEventListener("change", async e => {
+  skyFxMode = e.target.value;
+  await compileAllScenes();
+});
+
+// Gemini API Key Modal
+const apiModal = document.getElementById("api-modal");
+document.getElementById("btn-api-key").addEventListener("click", () => {
+  document.getElementById("gemini-key-input").value = localStorage.getItem("dsd_gemini_api_key") || "";
+  apiModal.classList.add("open");
+});
+document.getElementById("btn-modal-close").addEventListener("click", () => apiModal.classList.remove("open"));
+document.getElementById("btn-modal-save").addEventListener("click", () => {
+  const k = document.getElementById("gemini-key-input").value.trim();
+  if (k) {
+    localStorage.setItem("dsd_gemini_api_key", k);
+    appendChatMessage("ai", `🔑 <strong>Gemini 2.5 Flash API Key saved!</strong> Any custom prompt will now synthesize live multi-part SVGs.`);
+  } else {
+    localStorage.removeItem("dsd_gemini_api_key");
+  }
+  apiModal.classList.remove("open");
+});
+
+// WebXR AR (Tabletop Miniature) & VR (Full Stadium Sky)
+async function startXrSession(mode) {
+  if (!navigator.xr) {
+    appendChatMessage("ai", `🥽 WebXR is available when opened inside the <strong>Meta Quest Browser</strong>. In desktop browser, use mouse drag/scroll to orbit in 3D!`);
+    return;
+  }
+  try {
+    const supported = await navigator.xr.isSessionSupported(mode);
+    if (!supported) {
+      appendChatMessage("ai", `🥽 <code>${mode}</code> is not supported on this device.`);
+      return;
+    }
+    const session = await navigator.xr.requestSession(mode, {
+      optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking"]
+    });
+    renderer.xr.setSession(session);
+    if (mode === "immersive-ar") {
+      scene.background = null;
+      starField.visible = false;
+      stageGroup.scale.setScalar(0.05); // Miniature Tabletop Hologram in AR!
+      stageGroup.position.set(0, 0.85, -1.2);
+    } else {
+      scene.background = new THREE.Color(0x04060c);
+      starField.visible = true;
+      stageGroup.scale.setScalar(1.0);
+      stageGroup.position.set(0, 0, 0);
+    }
+    session.addEventListener("end", () => {
+      scene.background = new THREE.Color(0x04060c);
+      starField.visible = true;
+      stageGroup.scale.setScalar(1.0);
+      stageGroup.position.set(0, 0, 0);
+    });
+  } catch (err) {
+    appendChatMessage("ai", `⚠️ Could not start XR session: ${err.message}`);
+  }
+}
+document.getElementById("btn-enter-ar").addEventListener("click", () => startXrSession("immersive-ar"));
+document.getElementById("btn-enter-vr").addEventListener("click", () => startXrSession("immersive-vr"));
+
+// Transport Controls
+let isPaused = false;
+let playheadTime = TAKEOFF_DUR + 0.6;
+let showState = "RUNNING";
+let pauseCountdown = PRE_SHOW_DELAY;
+
+document.getElementById("btn-play").addEventListener("click", e => {
+  isPaused = !isPaused;
+  e.target.textContent = isPaused ? "▶️ Play" : "⏸ Pause";
+});
+document.getElementById("btn-camera-reset").addEventListener("click", () => {
+  camera.position.set(0, 15, 42);
+  orbit.target.set(0, 15, 0);
+  orbit.update();
+});
+document.getElementById("time-scrub").addEventListener("input", e => {
+  showState = "RUNNING";
+  playheadTime = parseFloat(e.target.value);
+  evaluateTimeline(playheadTime);
+});
+
+// ============================================================================
+// 12. 60FPS PHYSICS & RENDER LOOP
+// ============================================================================
+const SPRING = 12.0;
+const DAMPING = 5.4;
+const MAX_SPEED = 16.0;
+
+(async () => {
+  await compileAllScenes();
+  jumpToTime(TAKEOFF_DUR + 0.6);
+  // Snap initial positions to first formation so browser opens directly on a vibrant formation!
+  for (let i = 0; i < MAX_DRONES * 3; i++) {
+    currentPositions[i] = targetPositions[i];
+    currentColors[i] = targetColors[i];
+  }
+  renderTimelineStrip();
+  renderContextDrawer();
+})();
+
+let prevTime = performance.now();
+let lastHighlightedScene = -2;
+
+renderer.setAnimationLoop(now => {
+  const dt = Math.min(0.05, (now - prevTime) / 1000);
+  prevTime = now;
+
+  if (!isPaused && compiledScenes.length > 0) {
+    if (showState === "PRE_SHOW") {
+      pauseCountdown -= dt;
+      applyGroundPadWhiteTransition("PRE_SHOW", 1.0 - Math.max(0, pauseCountdown / PRE_SHOW_DELAY));
+      if (pauseCountdown <= 0) {
+        showState = "RUNNING";
+        playheadTime = 0.0;
+      }
+    } else if (showState === "RUNNING") {
+      playheadTime += dt;
+      if (playheadTime >= TOTAL_DURATION) {
+        playheadTime = TOTAL_DURATION;
+        evaluateTimeline(TOTAL_DURATION);
+        showState = "POST_SHOW";
+        pauseCountdown = POST_SHOW_DELAY;
+      } else {
+        evaluateTimeline(playheadTime);
+      }
+    } else if (showState === "POST_SHOW") {
+      pauseCountdown -= dt;
+      applyGroundPadWhiteTransition("POST_SHOW", 1.0 - Math.max(0, pauseCountdown / POST_SHOW_DELAY));
+      if (pauseCountdown <= 0) {
+        showState = "PRE_SHOW";
+        pauseCountdown = PRE_SHOW_DELAY;
+        playheadTime = 0.0;
+      }
+    }
+  } else if (compiledScenes.length > 0) {
+    evaluateTimeline(playheadTime);
+  }
+
+  if (currentPlayingSceneIdx !== lastHighlightedScene) {
+    lastHighlightedScene = currentPlayingSceneIdx;
+    renderTimelineStrip();
+  }
+
+  const scrub = document.getElementById("time-scrub");
+  if (scrub && document.activeElement !== scrub) scrub.value = String(playheadTime);
+  const hudTime = document.getElementById("hud-time");
+  if (hudTime) hudTime.textContent = `${activePhaseLabel} (${playheadTime.toFixed(1)}s / ${TOTAL_DURATION.toFixed(0)}s)`;
+
+  const fCount = getFormationDroneCount();
+  const showBodyEnd = TOTAL_DURATION - LANDING_DUR;
+  const inShowBody = (playheadTime > TAKEOFF_DUR && playheadTime < showBodyEnd);
+
+  for (let i = 0; i < MAX_DRONES; i++) {
+    const idx = i * 3;
+    let px = currentPositions[idx], py = currentPositions[idx + 1], pz = currentPositions[idx + 2];
+    let vx = velocities[idx], vy = velocities[idx + 1], vz = velocities[idx + 2];
+
+    const fx = (targetPositions[idx] - px) * SPRING - vx * DAMPING;
+    const fy = (targetPositions[idx + 1] - py) * SPRING - vy * DAMPING;
+    const fz = (targetPositions[idx + 2] - pz) * SPRING - vz * DAMPING;
+
+    vx += fx * dt; vy += fy * dt; vz += fz * dt;
+    const spd = Math.sqrt(vx * vx + vy * vy + vz * vz);
+    if (spd > MAX_SPEED) {
+      vx = (vx / spd) * MAX_SPEED;
+      vy = (vy / spd) * MAX_SPEED;
+      vz = (vz / spd) * MAX_SPEED;
+    }
+
+    currentPositions[idx]     += vx * dt;
+    currentPositions[idx + 1] += vy * dt;
+    currentPositions[idx + 2] += vz * dt;
+    velocities[idx] = vx; velocities[idx + 1] = vy; velocities[idx + 2] = vz;
+
+    // Enforce invisible return for ambient sky drones
+    if (i >= fCount && inShowBody) {
+      if ((skyFxMode === "embers" && vy < -0.15) || (skyFxMode !== "embers" && skyFxMode !== "fireflies" && vy > -0.15)) {
+        isDroneVisible[i] = 0;
+      }
+    }
+
+    if (isDroneVisible[i] === 0) {
+      currentColors[idx] = 0; currentColors[idx + 1] = 0; currentColors[idx + 2] = 0;
+    } else {
+      const cStep = Math.min(1.0, 9.0 * dt);
+      currentColors[idx]     += (targetColors[idx]     - currentColors[idx])     * cStep;
+      currentColors[idx + 1] += (targetColors[idx + 1] - currentColors[idx + 1]) * cStep;
+      currentColors[idx + 2] += (targetColors[idx + 2] - currentColors[idx + 2]) * cStep;
+    }
+  }
+
+  droneMat.size = Math.max(0.04, BASE_DRONE_SIZE * stageGroup.scale.x);
+  droneGeo.attributes.position.needsUpdate = true;
+  droneGeo.attributes.color.needsUpdate = true;
+
+  if (!renderer.xr.isPresenting) orbit.update();
+  renderer.render(scene, camera);
+});
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
